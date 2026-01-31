@@ -6,7 +6,7 @@ A Python library for computing eigenfunctions $f_{nl}(r)$ and spectral coefficie
 
 Ultralight dark matter (ULDM), also known as fuzzy dark matter, exhibits wave-like behavior on astrophysical scales. The wavefunction $\psi(\mathbf{r}, t)$ in a soliton potential can be expanded in eigenmodes:
 
-$$\psi(\mathbf{r}, t) = \sum_{n,l,m} c_{nlm}(t) \, f_{nl}(r) \, Y_l^m(\theta, \phi)$$
+$$\psi(\mathbf{r}, t) = \sum_{n,l,m} c_{nlm}(t)  f_{nl}(r)  Y_l^m(\theta, \phi)$$
 
 where:
 - $f_{nl}(r)$ are radial eigenfunctions solving the Schrödinger–Poisson equation
