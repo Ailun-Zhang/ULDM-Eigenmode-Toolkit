@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eig-uldm-packages"
+version = "0.2.0"
+description = "ULDM eigenmode analysis toolkit: compute eigenfunctions f_nl(r) and spectral coefficients c_nlm(t) for ultralight dark matter simulations."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Alan Zhang", email = "Alan.Zhang1@anu.edu.au"}
+]
+keywords = ["ULDM", "dark matter", "eigenmode", "spherical harmonics", "PyUL"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    "numpy>=1.20",
+    "scipy>=1.7",
+    "matplotlib>=3.4",
+    "h5py>=3.0",
+    "tqdm>=4.60",
+    "pyshtools>=4.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "jupyter>=1.0",
+    "moviepy>=2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit"
+Repository = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit"
+Documentation = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit#readme"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["Eig_ULDM_packages*"]
+
+[tool.setuptools.package-data]
+Eig_ULDM_packages = ["soliton.h5"]
