@@ -210,7 +210,12 @@ def soliton_density_function(m: float, sol: Dict[str, Any]) -> Callable[[np.ndar
     return rho_of_r
 
 
-def compute_potential(r_grid: np.ndarray, rho_func: Callable[[np.ndarray], np.ndarray]) -> np.ndarray:
+def compute_potential(
+    r_grid: np.ndarray,
+    rho_func: Callable[[np.ndarray], np.ndarray],
+    *,
+    zero_at_rmax: bool = False,
+) -> np.ndarray:
     """Compute the Newtonian potential Φ(r) from a spherically symmetric density.
 
     The radial Poisson equation in spherical symmetry reads
@@ -219,12 +224,19 @@ def compute_potential(r_grid: np.ndarray, rho_func: Callable[[np.ndarray], np.nd
 
     where ``M = ∫_0^{r_max} 4π r^2 ρ(r) dr`` is the total mass enclosed
     within the computational domain.  The Newtonian potential is then
-    given by ``Φ(r) = u(r) / r``.  At the outer boundary ``r_max`` the
-    condition ``u(r_max) = -M`` ensures that ``Φ(r_max) = -M/r_max``,
-    matching the exterior solution of a point mass of mass ``M``.  In
-    contrast to earlier revisions of this function that imposed a
-    Neumann condition on ``Φ'(r_max)``, this version implements the
-    Dirichlet condition exactly as in the reference Mathematica code.
+    given by ``Φ(r) = u(r) / r``.  By default, the outer boundary condition
+    follows the reference implementation ``u(r_max) = -M``, which yields
+    ``Φ(r_max) = -M/r_max`` and matches the exterior point‑mass solution of
+    mass ``M``.
+
+    Optional argument
+    ----------
+    zero_at_rmax : bool, optional
+    When ``True``, enforce the boundary condition ``u(r_max) = 0`` instead
+    of the default. This is equivalent to adding a constant ``M/r_max`` to
+    the potential ``Φ``: the force field and the eigenfunctions are
+    unchanged, and all eigenvalues shift upward by the same constant
+    ``M/r_max``. Default ``False`` (keep ``u(r_max) = -M``).
 
     Parameters
     ----------
@@ -278,12 +290,17 @@ def compute_potential(r_grid: np.ndarray, rho_func: Callable[[np.ndarray], np.nd
     cum_sr = np.cumsum(s_vals * r) * h
     # Particular solution u0
     u0 = r * cum_s - cum_sr
-    # Add homogeneous solution C r so that u(r_max) = -mass
+    # Add homogeneous solution C r.  Boundary condition at r_max depends on zero_at_rmax.
     r_max = r[-1]
     if r_max <= 0:
         raise ValueError("The radial grid must extend to positive r_max.")
-    # The constant C = (-mass - u0(r_max)) / r_max
-    C = (-mass - u0[-1]) / r_max
+    # Choose C to satisfy the desired outer boundary condition:
+    # - Default (zero_at_rmax=False):   u(r_max) = -M  => C = (-M - u0(r_max)) / r_max
+    # - Alternative (zero_at_rmax=True): u(r_max) = 0   => C = (0 - u0(r_max)) / r_max
+    if zero_at_rmax:
+        C = (-u0[-1]) / r_max
+    else:
+        C = (-mass - u0[-1]) / r_max
     u = u0 + C * r
     # Compute Φ(r) = u(r) / r with a proper r→0 limit.  If the grid
     # includes r=0, use the one‑sided derivative across the first
