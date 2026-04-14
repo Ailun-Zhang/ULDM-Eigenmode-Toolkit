@@ -32,14 +32,15 @@ def prepare_epsilon_nlm(
         Mode list order used for epsilon output.
     use_file : bool
         If True, read from c_file; if False, use epsilon_nlm_list directly.
+        In manual mode (use_file=False), c_file/t_point/mass are ignored.
     c_file : dict
-        Mapping (n,l,m) -> complex time series.
+        Mapping (n,l,m) -> complex time series. Required when use_file=True.
     t_point : int
-        Time index to sample from c_file.
+        Time index to sample from c_file. Required when use_file=True.
     mass : float
-        Mass used to rescale c_nlm values.
+        Mass used to rescale c_nlm values. Required when use_file=True.
     epsilon_nlm_list : iterable of complex
-        Manual epsilon list (used when use_file=False).
+        Manual epsilon list (required when use_file=False).
     normalize_c000 : bool
         If True and (0,0,0) is present, normalize c000 to enforce sum |c|^2 = 1.
     print_coeffs : bool
@@ -58,8 +59,21 @@ def prepare_epsilon_nlm(
     if use_file:
         if c_file is None or t_point is None or mass is None:
             raise ValueError("c_file, t_point, and mass are required when use_file=True.")
+        if mass <= 0:
+            raise ValueError("mass must be positive when use_file=True.")
         for (n, l, m) in nlm_list:
-            coeffs[(n, l, m)] = c_file[(n, l, m)][t_point] / np.sqrt(mass)
+            key = (n, l, m)
+            if key not in c_file:
+                raise KeyError(
+                    f"Mode {key} is missing in c_file. "
+                    "Make sure nlm_list matches the modes in your c_nlm output."
+                )
+            series = np.asarray(c_file[key])
+            if t_point < -len(series) or t_point >= len(series):
+                raise IndexError(
+                    f"t_point={t_point} is out of range for mode {key} with length {len(series)}."
+                )
+            coeffs[key] = series[t_point] / np.sqrt(mass)
 
         if normalize_c000 and (0, 0, 0) in coeffs:
             c000_unnorm = coeffs[(0, 0, 0)]
@@ -67,8 +81,16 @@ def prepare_epsilon_nlm(
             for key, val in coeffs.items():
                 if key != (0, 0, 0):
                     other_sum += np.abs(val) ** 2
-            c000_norm = np.sqrt(1 - other_sum)
-            coeffs[(0, 0, 0)] = c000_unnorm / np.abs(c000_unnorm) * c000_norm
+            if other_sum > 1 + 1e-12:
+                raise ValueError(
+                    "Cannot normalize c000 because sum of non-(0,0,0) mode powers exceeds 1 "
+                    f"(other_sum={other_sum})."
+                )
+            c000_norm = np.sqrt(max(0.0, 1 - other_sum))
+            if np.abs(c000_unnorm) == 0:
+                coeffs[(0, 0, 0)] = complex(c000_norm)
+            else:
+                coeffs[(0, 0, 0)] = c000_unnorm / np.abs(c000_unnorm) * c000_norm
     else:
         if epsilon_nlm_list is None:
             raise ValueError("epsilon_nlm_list is required when use_file=False.")
@@ -76,7 +98,7 @@ def prepare_epsilon_nlm(
         if len(eps_list) != len(nlm_list):
             raise ValueError("epsilon_nlm_list length must match nlm_list length.")
         for idx, key in enumerate(nlm_list):
-            coeffs[key] = eps_list[idx]
+            coeffs[key] = complex(eps_list[idx])
 
     if print_coeffs:
         for (n, l, m) in nlm_list:
