@@ -347,7 +347,7 @@ If you use this toolkit in your research, please cite the following:
   journal = {arXiv preprint},
   year = {2026},
   month = {February},
-  note = {[arXiv link](https://arxiv.org/abs/2602.11512)}
+  note = {arXiv: https://arxiv.org/abs/2602.11512}
 }
 ```
 
