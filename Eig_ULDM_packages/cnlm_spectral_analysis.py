@@ -614,6 +614,8 @@ def export_prd_figure(
     result: SpectralAnalysisResult,
     save_path: Optional[Path] = None,
     figsize: Tuple[float, float] = (7.6, 3.1),
+    time_xlim: Optional[Tuple[float, float]] = None,
+    save_pdf: bool = True,
 ) -> Path:
     """
     Export PRD-ready 1×2 figure (time domain + spectrum).
@@ -623,13 +625,19 @@ def export_prd_figure(
     result : SpectralAnalysisResult
         Output from analyze_cnlm_spectrum()
     save_path : Path, optional
-        Output path. If None, auto-generated.
+        Output base path. If None, auto-generated.
+        The function always writes EPS to <stem>.eps and, if save_pdf=True, PDF to <stem>.pdf.
     figsize : tuple
         Figure size
+    time_xlim : tuple(float, float), optional
+        X-range for the left time-domain panel. If provided, left-panel y-limits
+        are auto-scaled using only data inside this range.
+    save_pdf : bool
+        Whether to additionally export a PDF next to EPS.
     
     Returns
     -------
-    Path to saved file
+    Path to saved EPS file
     """
     n, ell, m = result.key
     
@@ -643,6 +651,9 @@ def export_prd_figure(
     
     save_path = Path(save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
+    base_path = save_path.with_suffix('') if save_path.suffix else save_path
+    eps_path = base_path.with_suffix('.eps')
+    pdf_path = base_path.with_suffix('.pdf')
     
     def _sci_tex(x: float, digits: int = 2) -> str:
         if not np.isfinite(x):
@@ -663,7 +674,7 @@ def export_prd_figure(
     freq = result.freq
     mag = result.mag
     
-    with plt.rc_context({'font.size': 11, 'axes.labelsize': 12, 'legend.fontsize': 9}):
+    with plt.rc_context({'font.size': 11, 'axes.labelsize': 12, 'legend.fontsize': 8.8}):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         fig.subplots_adjust(left=0.09, right=0.985, bottom=0.18, top=0.93, wspace=0.36)
         
@@ -677,11 +688,70 @@ def export_prd_figure(
         
         ax1.set_xlabel(r"Time $t$ (Myr)")
         ax1.set_ylabel("Amplitude")
-        ax1.legend(loc='upper left', frameon=False)
+
+        # Optional envelope-frequency text in legend
+        if np.isfinite(result.f_env):
+            f_env_tex = _sci_tex(float(result.f_env), digits=2)
+            ax1.plot([], [], ' ', label=rf"$f_{{\mathrm{{env}}}}\approx {f_env_tex}\,\mathrm{{Myr}}^{{-1}}$")
+
+        ax1.legend(
+            loc='upper left',
+            bbox_to_anchor=(0.01, 0.995),
+            frameon=False,
+            ncol=2,
+            columnspacing=0.9,
+            handletextpad=0.55,
+            handlelength=1.6,
+            borderaxespad=0.0,
+            labelspacing=0.25,
+        )
+
+        def _set_left_ylim(y_abs_max: float) -> None:
+            # Reserve generous headroom for 4-item legend and keep curves away from text.
+            if (not np.isfinite(y_abs_max)) or (y_abs_max <= 0):
+                y_abs_max = 1.0
+            if result.is_real_signal:
+                ax1.set_ylim(bottom=-1.25 * y_abs_max, top=+1.55 * y_abs_max)
+            else:
+                ax1.set_ylim(bottom=-1.25 * y_abs_max, top=+2.45 * y_abs_max)
+
+        # Optional left-panel time window (for publication crops)
+        if time_xlim is not None:
+            t0, t1 = float(time_xlim[0]), float(time_xlim[1])
+            if t1 <= t0:
+                raise ValueError(f"Invalid time_xlim={time_xlim}: require time_xlim[1] > time_xlim[0]")
+            ax1.set_xlim(t0, t1)
+
+            if result.is_real_signal:
+                y_ref = np.asarray(x, dtype=float)
+            else:
+                y_ref = np.concatenate([
+                    np.asarray(np.abs(x), dtype=float),
+                    np.asarray(x.real, dtype=float),
+                    np.asarray(x.imag, dtype=float),
+                ])
+
+            m = (t >= t0) & (t <= t1)
+            if np.any(m):
+                if result.is_real_signal:
+                    y_win = np.asarray(x[m], dtype=float)
+                else:
+                    y_win = np.concatenate([
+                        np.asarray(np.abs(x[m]), dtype=float),
+                        np.asarray(x.real[m], dtype=float),
+                        np.asarray(x.imag[m], dtype=float),
+                    ])
+                y_abs_max = float(np.max(np.abs(y_win))) if y_win.size else 0.0
+            else:
+                y_abs_max = 0.0
+
+            if (not np.isfinite(y_abs_max)) or (y_abs_max <= 0):
+                y_abs_max = float(np.max(np.abs(y_ref))) if y_ref.size else 1.0
+            _set_left_ylim(y_abs_max)
         
         y_max = float(np.max(np.abs(x))) if np.size(x) else 1.0
-        if np.isfinite(y_max) and y_max > 0:
-            ax1.set_ylim(bottom=-1.15 * y_max, top=+2.3 * y_max)
+        if (time_xlim is None) and np.isfinite(y_max) and y_max > 0:
+            _set_left_ylim(y_max)
         
         # Spectrum
         mag_plot = np.clip(mag.copy(), 1e-30, None)
@@ -698,12 +768,19 @@ def export_prd_figure(
             ax2.axvline(f1, color='red', linestyle='--', linewidth=1.2)
             ax2.axvline(f2, color='red', linestyle='--', linewidth=1.2)
             df_tex = _sci_tex(df, digits=2)
-            ax2.annotate('', xy=(f1, 0.78), xytext=(f2, 0.78),
+            y_frac = 0.70
+            ax2.annotate('', xy=(f1, y_frac), xytext=(f2, y_frac),
                         xycoords=('data', 'axes fraction'),
-                        arrowprops=dict(arrowstyle='<->', color='red', lw=1.2))
-            ax2.text(0.5*(f1+f2), 0.81, rf"$\Delta f\approx {df_tex}\,\mathrm{{Myr}}^{{-1}}$",
+                arrowprops=dict(arrowstyle='<->', color='red', lw=1.25))
+            xlo_now, xhi_now = ax2.get_xlim()
+            span_now = max(float(xhi_now - xlo_now), 1e-30)
+            x_margin = 0.12 * span_now
+            x_text = 0.5 * (f1 + f2)
+            x_text = min(max(x_text, float(xlo_now) + x_margin), float(xhi_now) - x_margin)
+            ax2.text(x_text, y_frac + 0.06, rf"$\Delta f\approx {df_tex}\,\mathrm{{Myr}}^{{-1}}$",
                     color='red', ha='center', va='bottom',
-                    transform=ax2.get_xaxis_transform(), fontsize=9)
+                transform=ax2.get_xaxis_transform(), fontsize=9.2,
+                    bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
         elif result.peak_pattern == 'single' and len(result.significant_peaks) >= 1:
             f1 = float(result.significant_peaks[0][0])
             span = max(4.0 * max(abs(f1), 1e-30), min_span)
@@ -716,7 +793,7 @@ def export_prd_figure(
         mag_win = mag_plot[win_mask]
         mag_win = mag_win[np.isfinite(mag_win)]
         if mag_win.size >= 8:
-            y_win_max = float(np.max(mag_win))
+            y_peak = float(np.max(mag_win))
             y_bg = float(np.percentile(mag_win, 10))
             y_bg = max(y_bg, 1e-30)
             if result.peak_pattern == 'two' and len(result.significant_peaks) >= 2:
@@ -729,22 +806,33 @@ def export_prd_figure(
                     y_ref_low = max(y_valley, y_bg)
                 else:
                     y_ref_low = y_bg
-                y_top = y_win_max * 1.40
-                y_bottom = max(y_ref_low * 0.85, y_win_max / 60.0, 1e-30)
             else:
-                y_top = y_win_max * 1.40
-                y_bottom = max(y_bg * 0.85, y_win_max / 80.0, 1e-30)
+                y_ref_low = y_bg
+
+            # Log-scale vertical framing: keep selected peaks around the middle-upper region
+            # and avoid sticking to top border.
+            y_bottom = max(y_ref_low * 0.90, y_peak / 220.0, 1e-30)
+            if y_peak > y_bottom:
+                peak_frac = 0.62  # desired vertical position of peak in axes fraction (log scale)
+                y_top_candidate = y_bottom * np.exp((np.log(y_peak) - np.log(y_bottom)) / peak_frac)
+                y_top = min(max(y_top_candidate, y_peak * 1.30), y_peak * 35.0)
+            else:
+                y_top = y_peak * 2.0
             if np.isfinite(y_bottom) and np.isfinite(y_top) and (y_top > y_bottom):
                 ax2.set_ylim(y_bottom, y_top)
         
         ax2.set_xlabel(r"Frequency $f$ (Myr$^{-1}$)")
         ax2.set_ylabel(rf"$|{c_freq_tex}|$")
         
-        fig.savefig(save_path, format='eps', bbox_inches='tight')
+        fig.savefig(eps_path, format='eps', bbox_inches='tight')
+        if save_pdf:
+            fig.savefig(pdf_path, format='pdf', bbox_inches='tight')
         plt.show()
     
-    print(f"Saved EPS: {save_path}")
-    return save_path
+    print(f"Saved EPS: {eps_path}")
+    if save_pdf:
+        print(f"Saved PDF: {pdf_path}")
+    return eps_path
 
 
 # ============================================================================
