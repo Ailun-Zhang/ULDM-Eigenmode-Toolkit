@@ -8,14 +8,53 @@ import numpy as np
 import pyshtools as pysh
 import multiprocessing as mp
 from datetime import datetime
-import matplotlib.pyplot as plt
-from moviepy import ImageSequenceClip
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import RegularGridInterpolator
-from matplotlib.ticker import FormatStrFormatter, FixedLocator
-from cryptography.utils import CryptographyDeprecationWarning
-warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+try:
+    from ._compat import alm_json_path as _alm_json_path, mp_context as _mp_context, prefix_folder as _prefix_folder
+except ImportError:  # functions3.py copied and imported outside the package
+    def _prefix_folder(file_prefix):
+        return str(file_prefix).replace("\\", "/").split("/")[0]
+
+    def _alm_json_path(file_prefix, r_0, l_max, filename):
+        return os.path.join("alm_coefficients", _prefix_folder(file_prefix), f"r0_{r_0}", f"lmax_{l_max}", filename)
+
+    def _mp_context():
+        return mp.get_context()
+# matplotlib (plotting) and moviepy (videos, optional extra 'anim') are imported
+# lazily inside the functions that need them, so that the a_lm stage
+# (compute_coeff.py -> process_file) imports on a minimal install.
+# cryptography is not a dependency; its warning filter is applied only if it
+# happens to be installed (it was only used to silence a paramiko warning).
+try:
+    from cryptography.utils import CryptographyDeprecationWarning
+    warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+except Exception:
+    pass
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="paramiko")
+
+# Supported angular sampling grids for SHExpandDHC(sampling=2):
+#   'legacy': theta = linspace(0, pi, N), phi = linspace(0, 2 pi, 2N) (endpoints
+#             included).  This is NOT the Driscoll-Healy grid, but it is what all
+#             published a_lm / c_nlm files were computed with, so it stays the
+#             default for bit-for-bit reproducibility.
+#   'dh':     theta_i = pi*i/N (i=0..N-1), phi_j = pi*j/N (j=0..2N-1), the grid
+#             SHExpandDHC(sampling=2) assumes.
+ANGULAR_GRIDS = ("legacy", "dh")
+
+
+def angular_grid_1d(num_points, angular_grid="legacy"):
+    """Return the 1-D (theta, phi) sample arrays for an N x 2N sphere grid."""
+    N = int(num_points)
+    if angular_grid == "legacy":
+        theta = np.linspace(0, np.pi, N)
+        phi = np.linspace(0, 2 * np.pi, 2 * N)
+    elif angular_grid == "dh":
+        theta = np.arange(N) * np.pi / N
+        phi = np.arange(2 * N) * np.pi / N
+    else:
+        raise ValueError(f"angular_grid must be one of {ANGULAR_GRIDS}, got {angular_grid!r}")
+    return theta, phi
 
 def load_wave_function(filename):
     """Load the wave function data from a numpy file."""
@@ -58,16 +97,16 @@ def spherical_to_cartesian(r, theta, phi):
     z = r * np.cos(theta)
     return x, y, z
 
-def compute_sh_coeffs(wave_function, mass_center, r, l_max, num_points, grid_spacing_kpc):
+def compute_sh_coeffs(wave_function, mass_center, r, l_max, num_points, grid_spacing_kpc, angular_grid="legacy"):
     """
     Compute the complex spherical harmonic coefficients using pyshtools.
     Vectorized implementation for better performance.
     
-    Parameters remain the same for compatibility.
+    Parameters remain the same for compatibility.  ``angular_grid`` selects
+    the sphere sampling ('legacy' = historical default, 'dh' = Driscoll-Healy).
     """
     N = num_points
-    theta = np.linspace(0, np.pi, N)
-    phi = np.linspace(0, 2 * np.pi, 2 * N)
+    theta, phi = angular_grid_1d(N, angular_grid)
     theta_grid, phi_grid = np.meshgrid(theta, phi, indexing='ij')
     
     # Vectorized computation of wave function values
@@ -99,10 +138,14 @@ def save_sh_coeffs(filename, source_file, r_0, coeffs):
         "r_0": r_0,
         "coeffs": coeffs.tolist()  # NumPy complex arrays need special handling
     }
-    with open(filename, 'w') as f:
-        # Convert complex numbers to strings for JSON serialization
-        json_str = json.dumps(data, default=lambda x: str(x) if isinstance(x, complex) else x)
+    # Convert complex numbers to strings for JSON serialization
+    json_str = json.dumps(data, default=lambda x: str(x) if isinstance(x, complex) else x)
+    # Write to a per-process temporary file and rename it, so that a job killed mid-write never leaves a
+    # truncated JSON file behind (compute_coeff --skip-existing would skip it).  Same content as before.
+    tmp = f"{filename}.tmp{os.getpid()}"
+    with open(tmp, 'w') as f:
         f.write(json_str)
+    os.replace(tmp, filename)
  
 def format_file_index(index):
     """
@@ -113,8 +156,22 @@ def format_file_index(index):
         return f"{index:03d}"
     return f"{index:04d}"
 
-def process_file(file_index, r_0, l_max, grid_spacing_kpc, pool_size, file_prefix, num_points):
-    """Process a single wave function file with optimized interpolation timing."""
+def process_file(file_index, r_0, l_max, grid_spacing_kpc, pool_size, file_prefix, num_points,
+                 angular_grid="legacy", raise_on_error=True):
+    """Process a single wave function file with optimized interpolation timing.
+
+    Writes ``alm_coefficients/<prefix folder>/r0_<r_0>/lmax_<l_max>/alm_coefficients_<name>_r0_<r_0>.json``
+    relative to the current working directory and returns that path.
+
+    Failures (missing snapshot, unreadable cube, expansion error) are always
+    written to ``error_log.txt``.  With ``raise_on_error=True`` (default since
+    0.3.0) the exception is then re-raised so callers cannot silently lose
+    shells; ``raise_on_error=False`` restores the historical behaviour of
+    printing, logging and returning ``None``.
+
+    ``pool_size`` is accepted for backward compatibility and unused.
+    ``angular_grid`` selects the sphere sampling ('legacy' default, or 'dh').
+    """
     source_file = f"{file_prefix}{format_file_index(file_index)}.npy"
     if os.path.exists(source_file):
         try:
@@ -133,8 +190,7 @@ def process_file(file_index, r_0, l_max, grid_spacing_kpc, pool_size, file_prefi
             center_time = (center_end_time - center_start_time).total_seconds()
             
             # Prepare spherical grid once per file
-            theta = np.linspace(0, np.pi, num_points)
-            phi   = np.linspace(0, 2 * np.pi, 2 * num_points)
+            theta, phi = angular_grid_1d(num_points, angular_grid)
             theta_grid, phi_grid = np.meshgrid(theta, phi, indexing='ij')
             
             # Interpolation timing using map_coordinates
@@ -158,7 +214,7 @@ def process_file(file_index, r_0, l_max, grid_spacing_kpc, pool_size, file_prefi
             source_file_name = os.path.splitext(os.path.basename(source_file))[0]
             output_dir = os.path.join(
                 "alm_coefficients",
-                file_prefix.split('/')[0],
+                _prefix_folder(file_prefix),
                 f"r0_{r_0}",
                 f"lmax_{l_max}"
             )
@@ -195,24 +251,29 @@ def process_file(file_index, r_0, l_max, grid_spacing_kpc, pool_size, file_prefi
             
             del wave_function
             gc.collect()
+            return output_file
 
         except Exception as e:
             print(f"Error processing file {source_file}: {e}")
             with open("error_log.txt", "a") as error_file:
                 error_file.write(f"Error processing {source_file} for r_0={r_0}: {e}\n")
+            if raise_on_error:
+                raise
+            return None
     else:
         print(f"File {source_file} does not exist.")
         with open("error_log.txt", "a") as error_file:
             error_file.write(f"File not found: {source_file}\n")
+        if raise_on_error:
+            raise FileNotFoundError(f"Snapshot file not found: {source_file} (cwd={os.getcwd()})")
+        return None
 
 def load_alm_from_file(file_prefix, file_index, r_0, l_max):
     """Load the computed complex alm coefficients from a JSON file."""
-    base_dir = "alm_coefficients"
-    file_prefix_folder = file_prefix.split('/')[0]
-    sub_dir = os.path.join(file_prefix_folder, f"r0_{r_0}", f"lmax_{l_max}")
     #filename = f"alm_coefficients_{os.path.basename(file_prefix)}{file_index:03d}_r0_{r_0}.json"
     filename = f"alm_coefficients_{os.path.basename(file_prefix)}{format_file_index(file_index)}_r0_{r_0}.json"
-    file_path = os.path.join(base_dir, sub_dir, filename)
+    # new location, or the 0.2.0 location of trees written with an absolute prefix (_compat.alm_json_path)
+    file_path = _alm_json_path(file_prefix, r_0, l_max, filename)
     
     with open(file_path, 'r') as f:
         data = json.load(f)
@@ -242,6 +303,8 @@ def batch_process_files(start_index, end_index, r_0_values, l_max, grid_spacing_
 
 def plot_interpolated_and_reconstructed_density(file_prefix, file_index, grid_spacing_kpc, r_0, plot_num_points, l_max, duration, save_number):
     """Create comparison plots of original and reconstructed probability densities using map_coordinates."""
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import FormatStrFormatter
     source_file = f"{file_prefix}{format_file_index(file_index)}.npy"
     wave_function = np.load(source_file)
     mass_center = calculate_mass_center(wave_function, grid_spacing_kpc)
@@ -313,7 +376,14 @@ def plot_interpolated_and_reconstructed_density(file_prefix, file_index, grid_sp
     return frame_filename
 
 def combine_frames_to_video(frame_filenames, output_file, fps=5):
-    """Combine multiple frames into a video."""
+    """Combine multiple frames into a video (needs the optional 'anim' extra: moviepy>=2)."""
+    try:
+        from moviepy import ImageSequenceClip
+    except ImportError as exc:  # pragma: no cover - optional dependency
+        raise ImportError(
+            "combine_frames_to_video needs moviepy>=2.0; install it with "
+            "pip install 'eig-uldm-packages[anim]' (or pip install moviepy)."
+        ) from exc
     clip = ImageSequenceClip(frame_filenames, fps=fps)
     clip.write_videofile(output_file, codec='libx264')
     for filename in frame_filenames:
@@ -328,7 +398,7 @@ def create_animation(start_index, end_index, grid_spacing_kpc, r_0_values, l_max
         print(f"Processing r_0 = {r_0} kpc")
         start_time = time.time()
         
-        with mp.Pool(pool_size) as pool:
+        with _mp_context().Pool(pool_size) as pool:
             frame_filenames = pool.starmap(
                 plot_interpolated_and_reconstructed_density, 
                 [(file_prefix, i, grid_spacing_kpc, r_0, plot_num_points, l_max, duration, save_number) 

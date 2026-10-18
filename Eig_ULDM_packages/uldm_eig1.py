@@ -29,6 +29,8 @@ import scipy.interpolate as _interp
 import scipy.integrate as _integrate
 import scipy.sparse as _sparse
 import scipy.sparse.linalg as _sparse_linalg
+
+from ._compat import trapezoid as _trapezoid
 try:
     import h5py  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover - h5py might not be installed in restricted environments
@@ -38,7 +40,7 @@ except ImportError:  # pragma: no cover - h5py might not be installed in restric
     h5py = None  # type: ignore[assignment]
 
 
-def load_soliton_file(h5_path: str) -> Dict[str, Any]:
+def load_soliton_file(h5_path: str, mass0: Optional[float] = None) -> Dict[str, Any]:
     """Load a dimensionless soliton profile from an HDF5 file.
 
     The reference ULDM pipeline stores the ground‑state soliton profile
@@ -62,6 +64,14 @@ def load_soliton_file(h5_path: str) -> Dict[str, Any]:
         Path to the HDF5 file containing the soliton data.  The file
         must contain a dataset ``/profile`` and attributes ``dr`` and
         ``mass0``.
+
+    mass0 : float, optional
+        Override the file's ``mass0`` attribute.  The bundled ``soliton.h5``
+        stores the rounded value 3.883, while the profile integral (and
+        PyUL's soliton) is 3.8827652755822006; with the rounded value the
+        scaled soliton is about 6e-5 lighter than requested.  ``None``
+        (default) keeps the file value, as used for all published
+        eigenfunctions.
 
     Returns
     -------
@@ -89,6 +99,7 @@ def load_soliton_file(h5_path: str) -> Dict[str, Any]:
     ValueError
         If ``dr`` or ``mass0`` cannot be cast to positive floats.
     """
+    mass0_override = mass0
     if h5py is None:
         raise ImportError(
             "h5py is required to load the soliton profile but is not installed."
@@ -110,6 +121,8 @@ def load_soliton_file(h5_path: str) -> Dict[str, Any]:
             raise ValueError(
                 "Attributes 'dr' and 'mass0' must be convertible to floats."
             )
+    if mass0_override is not None:
+        mass0 = float(mass0_override)
     if dr <= 0 or mass0 <= 0:
         raise ValueError("Attributes 'dr' and 'mass0' must be positive.")
     n = len(prof)
@@ -273,7 +286,7 @@ def compute_potential(
     # Approximate the total mass enclosed within r_max.  The integral
     # ∫ 0^r_max 4π r^2 ρ(r) dr is computed via the trapezoidal rule.
     integrand_mass = 4.0 * np.pi * r ** 2 * rho_vals
-    mass = np.trapz(integrand_mass, r)
+    mass = _trapezoid(integrand_mass, r)
     # The differential equation u''(r) = 4π r ρ(r) has general solution
     # u(r) = ∫_0^r (r - s) 4π s ρ(s) ds + C r.  Here we compute the
     # particular integral using an O(n) algorithm.  Let s_j = 4π r_j ρ_j
@@ -281,6 +294,9 @@ def compute_potential(
     #   u0[k] = r_k * Σ_{j≤k} s_j dr - Σ_{j≤k} s_j r_j dr
     # This is equivalent to the double integral and is far more
     # efficient than nested loops or cumulative_trapezoid calls.
+    # Note: M above uses the trapezoidal rule while u0 below uses a left
+    # Riemann (rectangle) sum; the two differ at O(h).  This is the
+    # historical scheme and is kept unchanged so eigenfunctions reproduce.
     # Compute source term s_j
     s_vals = 4.0 * np.pi * r * rho_vals
     # Uniform spacing h
@@ -324,8 +340,9 @@ def compute_potential_from_grid(
     direction: Optional[Any] = None,
     strict: bool = True,
     subtract_mean: bool = False,
+    cell_centered: bool = True,
 ) -> np.ndarray:
-    """Reconstruct a radial gravitational potential profile Φ(r) from a 3‑D grid file.
+    r"""Reconstruct a radial gravitational potential profile Φ(r) from a 3‑D grid file.
 
     This function is an *alternative* to :func:`compute_potential` that produces a
     potential array ``phi`` sampled on the supplied radial grid ``r_grid`` but
@@ -347,11 +364,16 @@ def compute_potential_from_grid(
 
     potential_path : str
         Path to a NumPy ``.npy`` file containing a cubic 3‑D potential array
-        ``phi_grid`` of shape ``(N,N,N)`` in *code units*.  The grid is assumed
-        to be sampled on cell centres spanning ``[-L/2, +L/2]`` in each
-        coordinate with uniform spacing ``dx``.  If ``dx`` is not supplied it is
-        inferred as ``dx ≈ 2*max(r_grid)/N`` (i.e. the radial grid's outer edge
-        is assumed to lie inside the simulation cube of half‑length ``L/2``).
+        ``phi_grid`` of shape ``(N,N,N)`` in *code units*.  By default
+        (``cell_centered=True``) the grid is assumed to be sampled on cell
+        centres ``(i+0.5)*dx - L/2``, i.e. PyUL with ``CellCenteredGrid=True``;
+        pass ``cell_centered=False`` for PyUL's default node grid
+        ``i*dx - L/2`` (``linspace(-L/2, L/2, N, endpoint=False)``).  If ``dx``
+        is not supplied it is inferred as ``dx = 2*max(r_grid)/N``, which is
+        only correct when ``r_grid`` ends exactly at the cube half-length
+        ``L/2``; a ``RuntimeWarning`` is emitted in that case.  Pass ``dx``
+        explicitly (``L/N`` for full-box files, the resampled spacing for
+        ``*RS`` files).
 
     com_path : str, optional
         Path to a ``UCM_#NNN.npy`` file with the COM coordinates ``(cx, cy, cz)``
@@ -363,8 +385,12 @@ def compute_potential_from_grid(
 
     dx : float, optional
         Grid spacing of the 3‑D potential.  If ``None`` it is inferred as
-        described above.  Providing ``dx`` avoids the small inference error that
-        can arise when the simulation cube is slightly larger than ``2*r_max``.
+        described above.  Providing ``dx`` avoids the inference error that
+        arises whenever the simulation cube is not exactly ``2*r_max`` wide.
+
+    cell_centered : bool, optional
+        Grid convention of the potential file (see ``potential_path``).
+        Default ``True`` (the historical assumption).
 
     assume_centered : bool, optional
         If ``True`` the potential is assumed already COM‑centred and no rolling
@@ -445,6 +471,12 @@ def compute_potential_from_grid(
         if r_max_target <= 0:
             raise ValueError("r_grid must extend to positive radii.")
         dx = (2.0 * r_max_target) / N
+        warnings.warn(
+            f"compute_potential_from_grid: dx not given, inferred dx = 2*r_grid[-1]/N = {dx:.6g}; "
+            "this assumes r_grid ends exactly at the cube half-length. Pass dx explicitly.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     dx = float(dx)
     if dx <= 0:
         raise ValueError("dx must be positive.")
@@ -482,7 +514,13 @@ def compute_potential_from_grid(
         phi_grid = phi_grid - float(np.mean(phi_grid))
 
     # Build coordinate array of cell centres: (i+0.5)*dx - L/2
-    ax = (np.arange(N, dtype=np.float64) + 0.5) * dx - 0.5 * L
+    # (or nodes i*dx - L/2 when cell_centered=False)
+    if cell_centered:
+        ax = (np.arange(N, dtype=np.float64) + 0.5) * dx - 0.5 * L
+        _idx_off = 0.5
+    else:
+        ax = np.arange(N, dtype=np.float64) * dx - 0.5 * L
+        _idx_off = 0.0
     # Squared coordinates (broadcast friendly)
     X2 = ax[:, None, None] ** 2
     Y2 = ax[None, :, None] ** 2
@@ -491,9 +529,9 @@ def compute_potential_from_grid(
 
     # Helper for trilinear interpolation at a single point (x,y,z)
     def _interp_trilinear_at(x: float, y: float, z: float) -> float:
-        ax0 = (x + 0.5 * L) / dx - 0.5
-        ay0 = (y + 0.5 * L) / dx - 0.5
-        az0 = (z + 0.5 * L) / dx - 0.5
+        ax0 = (x + 0.5 * L) / dx - _idx_off
+        ay0 = (y + 0.5 * L) / dx - _idx_off
+        az0 = (z + 0.5 * L) / dx - _idx_off
         if not (0.0 <= ax0 <= (N - 1) and 0.0 <= ay0 <= (N - 1) and 0.0 <= az0 <= (N - 1)):
             return float("nan")
         i0, j0, k0 = int(np.floor(ax0)), int(np.floor(ay0)), int(np.floor(az0))
@@ -538,7 +576,7 @@ def compute_potential_from_grid(
             raise ValueError("direction must be non‑zero and finite.")
         d_hat = dvec / norm
         # Maximum usable radius before leaving cube (inclusive of outer cell centres)
-        amax = 0.5 * L - 0.5 * dx  # = ax[-1]
+        amax = 0.5 * L - 0.5 * dx if cell_centered else 0.5 * L - dx  # = min(|ax[0]|, ax[-1])
         comp = np.abs(d_hat)
         # For zero components, ignore the constraint by using +inf
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -576,7 +614,7 @@ def compute_potential_from_grid(
         raise NotImplementedError(f"method='{method}' is not implemented.")
 
     # Radial binning: dr = dx, only shells fully inside cube are considered.
-    r_max_shell = 0.5 * L - 0.5 * dx  # centre of outermost intact shell
+    r_max_shell = 0.5 * L - 0.5 * dx if cell_centered else 0.5 * L - dx  # centre of outermost intact shell
     dr = dx
     bins = np.arange(0.0, r_max_shell + dr, dr)
     flat_r = R.ravel()
@@ -622,6 +660,9 @@ def make_d2_matrix(r_grid: np.ndarray) -> _sparse.csr_matrix:
     omitting couplings beyond the first and last interior points.  No
     special one‑sided stencil is used; the same coefficients apply for
     all rows, and contributions from ghost nodes are implicitly zero.
+    Consequently the last grid point ``r_grid[-1]`` is an *unknown*, and
+    the effective Dirichlet wall sits at ``r_grid[-1] + h`` (see
+    ``solve_h(outer_boundary=...)``).
 
     Parameters
     ----------
@@ -732,6 +773,7 @@ def solve_h(
     maxiter: Optional[int] = None,
     tol: float = 1e-16,
     ell: int = 0,
+    outer_boundary: str = "legacy",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Solve for the lowest ``n_eig`` eigenpairs of the radial Hamiltonian.
 
@@ -775,13 +817,23 @@ def solve_h(
         SciPy chooses a default based on the matrix size.
 
     tol : float, optional
-        Convergence tolerance for the eigensolver.  Defaults to
+        Convergence tolerance for the eigensolver (ARPACK).  Defaults to
+        ``1e-16`` here; :func:`make_all_eigs` passes its own default
         ``1e-10``.
 
     ell : int, optional
         Orbital angular momentum of the channel associated with the
         Hamiltonian ``H``.  Used to regularise ``f(r)`` near the origin
         so that ``f(r)`` obeys the analytic behaviour ``f(r) ∝ r^ℓ``.
+
+    outer_boundary : {'legacy', 'rmax'}, optional
+        ``'legacy'`` (default, used for all published eigenfunctions): the
+        last grid point is an unknown and the Dirichlet wall is effectively
+        at ``r_grid[-1] + h``.  ``'rmax'``: impose ``u(r_grid[-1]) = 0``
+        exactly (solve on the interior points only and pad zeros), so the
+        domain is exactly ``[r_grid[0], r_grid[-1]]`` and eigenvalues converge
+        to the fixed-domain values as the grid is refined.  The returned
+        arrays have the same shape in both cases.
 
     Returns
     -------
@@ -822,6 +874,8 @@ def solve_h(
     if ell < 0 or int(ell) != ell:
         raise ValueError("ell must be a non-negative integer in solve_h.")
     ell_int = int(ell)
+    if outer_boundary not in ("legacy", "rmax"):
+        raise ValueError("outer_boundary must be 'legacy' or 'rmax'.")
 
     # Choose eigensolver options
     which = "SA"  # smallest algebraic eigenvalues
@@ -838,7 +892,26 @@ def solve_h(
     # u(0)=0 by solving on the interior subspace (indices 1..n-1) and then
     # padding u0=0.  This preserves symmetry and removes spurious dependence on rmin.
     origin_included = (r[0] == 0.0)
-    if origin_included:
+    if outer_boundary == "rmax":
+        # Fixed domain: u = 0 at r_grid[-1] (and at r = 0 when included).
+        lo = 1 if origin_included else 0
+        H_eff = H[lo:n - 1, lo:n - 1]
+        n_eff = H_eff.shape[0]
+        if n_eig >= n_eff:
+            raise ValueError(
+                f"n_eig must be less than the interior dimension {n_eff} for outer_boundary='rmax'."
+            )
+        E, u_vecs_eff = _sparse_linalg.eigsh(
+            H_eff,
+            k=n_eig,
+            which=which,
+            sigma=sigma,
+            maxiter=maxiter,
+            tol=tol,
+        )
+        u_vecs = np.zeros((n, n_eig), dtype=np.float64)
+        u_vecs[lo:n - 1, :] = u_vecs_eff
+    elif origin_included:
         H_eff = H[1:, 1:]
         n_eff = H_eff.shape[0]
         if n_eig >= n_eff:
@@ -1034,6 +1107,7 @@ def make_all_eigs(
     shift: Optional[float] = None,
     maxiter: Optional[int] = None,
     tol: float = 1e-10,
+    outer_boundary: str = "legacy",
 ) -> Dict[str, Any]:
     """Compute eigenvalues and eigenfunctions for all ℓ up to a maximum.
 
@@ -1053,8 +1127,10 @@ def make_all_eigs(
         Number of radial excitations per ℓ to compute.  Must satisfy
         ``n_eig < len(r_grid)``.
 
-    shift, maxiter, tol : optional
-        Passed through to :func:`solve_h`.
+    shift, maxiter, tol, outer_boundary : optional
+        Passed through to :func:`solve_h`.  ``outer_boundary='legacy'``
+        (default) reproduces the published eigenfunctions; ``'rmax'``
+        imposes u(r_max) = 0 exactly.
 
     Returns
     -------
@@ -1098,6 +1174,7 @@ def make_all_eigs(
             maxiter=maxiter,
             tol=tol,
             ell=ell,
+            outer_boundary=outer_boundary,
         )
         # Store under hierarchical key
         key = f"ell/{ell}"
@@ -1109,7 +1186,7 @@ def make_all_eigs(
     return result
 
 
-def save_eigs_to_h5(data: Dict[str, Any], h5_path: str) -> None:
+def save_eigs_to_h5(data: Dict[str, Any], h5_path: str, metadata: Optional[Dict[str, Any]] = None) -> None:
     """Write eigenvalue data to an HDF5 file matching the reference schema.
 
     The output file will contain a group ``/ell`` with subgroups
@@ -1118,6 +1195,10 @@ def save_eigs_to_h5(data: Dict[str, Any], h5_path: str) -> None:
     radial grid, eigenvalues and eigenfunctions, respectively.  If the
     file already exists it will be overwritten.
 
+    Since version 0.3.0 provenance (software versions and the optional
+    ``metadata``, e.g. soliton mass, r_max, axion mass, boundary option) is
+    written as root attributes; the ``/ell`` layout is unchanged.
+
     Parameters
     ----------
     data : dict
@@ -1125,6 +1206,9 @@ def save_eigs_to_h5(data: Dict[str, Any], h5_path: str) -> None:
 
     h5_path : str
         Path to the HDF5 file to create.
+
+    metadata : dict, optional
+        Extra root attributes.
     """
     if h5py is None:
         # Emit a warning and skip writing the file.  Without h5py the
@@ -1136,7 +1220,14 @@ def save_eigs_to_h5(data: Dict[str, Any], h5_path: str) -> None:
             RuntimeWarning,
         )
         return
+    from ._h5meta import write_attrs, provenance
+
     with h5py.File(h5_path, "w") as f:
+        meta = provenance("uldm_eig1.save_eigs_to_h5", format="uldm-eigen-h5", format_version=1,
+                          normalisation="int_0^rmax f_nl(r)^2 r^2 dr = 1 (code units)")
+        if metadata:
+            meta.update(metadata)
+        write_attrs(f.attrs, meta)
         ell_group = f.create_group("ell")
         for key, val in data.items():
             parts = key.split("/")

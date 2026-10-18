@@ -1,13 +1,15 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+# setuptools >= 77 understands the SPDX `license` string (PEP 639) and runs on Python 3.9.
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "eig-uldm-packages"
-version = "0.2.0"
+version = "0.3.0"
 description = "ULDM eigenmode analysis toolkit: compute eigenfunctions f_nl(r) and spectral coefficients c_nlm(t) for ultralight dark matter simulations."
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 authors = [
     {name = "Alan Zhang", email = "Alan.Zhang1@anu.edu.au"}
@@ -16,15 +18,18 @@ keywords = ["ULDM", "dark matter", "eigenmode", "spherical harmonics", "PyUL"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Scientific/Engineering :: Astronomy",
 ]
+# NumPy 2 and SciPy >= 1.17 are supported since 0.3.0 (np.trapz / sph_harm shims).
 dependencies = [
     "numpy>=1.20",
     "scipy>=1.7",
@@ -35,11 +40,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Videos of the angular density (functions3.combine_frames_to_video / create_animation).
+anim = [
+    "moviepy>=2.0",
+]
+# Tests and notebook tooling.
 dev = [
     "pytest>=7.0",
+    "nbformat>=5.0",
     "jupyter>=1.0",
     "moviepy>=2.0",
 ]
+
+[project.scripts]
+uldm-cnlm = "Eig_ULDM_packages.pipeline:main"
 
 [project.urls]
 Homepage = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit"
@@ -55,3 +69,7 @@ include = ["Eig_ULDM_packages*"]
 
 [tool.setuptools.package-data]
 Eig_ULDM_packages = ["soliton.h5"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

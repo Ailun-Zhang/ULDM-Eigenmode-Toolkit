@@ -1,4 +1,4 @@
-"""
+r"""
 Computing time‑dependent ULDM spectral coefficients ``c_{nlm}(t)``.
 
 This module provides a set of functions for taking the radial
@@ -27,7 +27,8 @@ Two HDF5 inputs are expected:
   quantum number ``n`` with zero‑based indexing).
 
 * The *spherical harmonic* file created by ``create_sh_hdf5`` in
-  ``a_lm.py``.  This file has a dataset ``massArr`` at the top level
+  ``alm_utils.py`` (or by ``cnlm_snapshot.write_alm_h5``, same layout).
+  This file has a dataset ``massArr`` at the top level
   and one group per time step named ``alm_<tttttt>`` where ``tttttt``
   is a zero‑padded integer starting from 0.  Inside each group
   ``ylm`` is a two‑dimensional complex array of shape
@@ -47,9 +48,15 @@ interpolation the user may supply a desired time grid; otherwise the
 original sampling of the spherical harmonic file is used.
 
 The resulting ``c_{nlm}(t)`` arrays are stored in an HDF5 file with
-a hierarchical layout keyed by ``ℓ`` and ``n`` and containing
-datasets for each azimuthal number ``m``.  Utilities are provided to
-load and save this data structure.
+a hierarchical layout ``/n/<n>/l/<ℓ>/m_<m>`` (complex128 series) plus a
+root dataset ``t``.  Utilities are provided to load and save this data
+structure.
+
+Since version 0.3.0 the a_lm and c_nlm files written by this toolkit may
+carry provenance information as *root attributes* (radial grid, times,
+units, snapshot indices, kernel parameters, software versions).  Attributes
+are invisible to readers that iterate over groups and datasets, so the
+historical layout is unchanged.
 
 Limitations
 -----------
@@ -62,13 +69,13 @@ files.  Users running in restricted environments should install
 Example usage
 -------------
 
->>> from packages.c_nlm_integrator import (
+>>> from Eig_ULDM_packages.c_nlm_integrator import (
 ...     load_eigenfunctions, load_a_lm, compute_cnlm,
 ...     save_cnlm_to_h5, load_cnlm_from_h5)
->>> r_f, f_dict = load_eigenfunctions('eigs_mass_50_Eig_25_lmax_10_nig_5120_py.h5')
->>> times, alm_dict = load_a_lm('PyUL_psi_alm_0.05_(1,0,0)_mass50_256.h5')
->>> t_out, c_dict = compute_cnlm(r_f, f_dict, alm_dict['r'], times,
-...                              alm_dict['a_lm'], r_interp_kind='cubic')
+>>> r_f, f_dict = load_eigenfunctions('eigs_mass_170_Eig_25_lmax_10_nig_5120_py2.h5')
+>>> alm = load_a_lm('PyUL_psi_alm.h5', r_al=r_al_code_units, final_time=3000.0)
+>>> t_out, c_dict = compute_cnlm(r_f, f_dict, alm['r'], alm['t'],
+...                              alm['a_lm'], r_interp_kind='cubic')
 >>> save_cnlm_to_h5(c_dict, t_out, 'c_nlm.h5')
 
 The companion notebook ``compute_c_nlm.ipynb`` demonstrates these
@@ -78,12 +85,17 @@ functions on realistic data and generates plots of |c_{nlm}(t)|².
 from __future__ import annotations
 
 import os
+import re
 import sys
+import json
+import warnings
 from typing import Dict, Tuple, Any, Optional, List, Iterable
 
 import numpy as np
 import scipy.interpolate as _interp
 import scipy.integrate as _integrate
+
+from ._compat import mp_context as _mp_context, trapezoid as _trapezoid
 
 try:
     import h5py  # type: ignore[import-not-found]
@@ -145,7 +157,7 @@ def _cnlm_worker(task: Tuple[int, int, int]) -> Tuple[Tuple[int, int, int], np.n
         )
         a_interp_local = interp_func_local(r_int)
         integrand_local = weight * f_vec_int * a_interp_local
-        c_arr_local[jj] = np.trapz(integrand_local, dx=dr_int)
+        c_arr_local[jj] = _trapezoid(integrand_local, dx=dr_int)
     # Identify worker (process) handling this chunk
     try:
         import multiprocessing as _mp
@@ -204,12 +216,135 @@ def _init_cnlm_worker(
     _cnlm_globals['a_lm'] = a_lm
 
 
+def _init_cnlm_worker_lm(
+    r_int: np.ndarray,
+    weight: np.ndarray,
+    dr_int: float,
+    n_times: int,
+    r_al_arr: np.ndarray,
+    r_interp_kind: str,
+    f_on_grid: Dict[Tuple[int, int], np.ndarray],
+) -> None:
+    """Initialiser for :func:`_cnlm_worker_lm` (everything except a_lm)."""
+    _init_cnlm_worker(r_int, weight, dr_int, n_times, r_al_arr, r_interp_kind, f_on_grid, {})
+
+
+def _cnlm_worker_lm(task):
+    """Compute c_{nlm}(t) for one (ℓ, m) and all requested n.
+
+    ``task = (ell, m_val, n_list, alm_mat)``.  Only the a_lm matrix of this
+    (ℓ, m) is sent to the worker (instead of pickling the whole a_lm
+    dictionary into every worker), and the radial interpolation of each time
+    slice is computed once and reused for all n.  The arithmetic per
+    (n, ℓ, m, t) is identical to :func:`_cnlm_worker`, so results are
+    bitwise equal.
+    """
+    ell, m_val, n_list, alm_mat = task
+    g = _cnlm_globals
+    r_int = g['r_int']; weight = g['weight']; dr_int = g['dr_int']
+    n_times = g['n_times']; r_al_arr = g['r_al_arr']; r_interp_kind = g['r_interp_kind']
+    f_on_grid = g['f_on_grid']
+    out = {n_idx: np.zeros(n_times, dtype=np.complex128) for n_idx in n_list}
+    for jj in range(n_times):
+        a_slice = alm_mat[:, jj]
+        kind_local = r_interp_kind
+        if kind_local in ("cubic", "quadratic"):
+            n_ra = len(r_al_arr)
+            if kind_local == "cubic" and n_ra < 4:
+                kind_local = "linear"
+            elif kind_local == "quadratic" and n_ra < 3:
+                kind_local = "linear"
+        interp_func_local = _interp.interp1d(
+            r_al_arr,
+            a_slice,
+            kind=kind_local,
+            bounds_error=False,
+            fill_value=(a_slice[0], a_slice[-1]),
+            assume_sorted=True,
+        )
+        a_interp_local = interp_func_local(r_int)
+        for n_idx in n_list:
+            integrand_local = weight * f_on_grid[(ell, n_idx)] * a_interp_local
+            out[n_idx][jj] = _trapezoid(integrand_local, dx=dr_int)
+    try:
+        import multiprocessing as _mp
+        worker_name = _mp.current_process().name
+    except Exception:
+        worker_name = "worker"
+    return [((n_idx, ell, m_val), out[n_idx]) for n_idx in n_list], worker_name
+
+
+def check_rmax_consistency(
+    r_al_max: Any,
+    r_max_eig: Any,
+    *,
+    rtol: float = 1e-6,
+    raise_error: bool = True,
+    label: str = "a_lm radial grid",
+) -> float:
+    """Check that the a_lm shell grid and the eigenfunction grid end at the same radius.
+
+    The historical ``compute_c_nlm.ipynb`` silently rescaled the a_lm radii
+    onto the eigen-grid r_max (``r_al = r/r[-1]*r_max_eig``).  That rescale
+    is harmless only when both grids already end at the same physical
+    radius (true for the paper: 2.5 kpc = 0.20604798941694438 code units at
+    m_a = 1e-21 eV).  Call this helper first.
+
+    Parameters
+    ----------
+    r_al_max, r_max_eig : float or 1-D array
+        Outer radii (or whole grids; the last element is used), in the
+        same units (code units for compute_cnlm).
+    rtol : float
+        Allowed relative mismatch.
+    raise_error : bool
+        Raise ``ValueError`` on mismatch (default) or only warn.
+
+    Returns
+    -------
+    float
+        The relative mismatch ``|r_al_max - r_max_eig| / r_max_eig``.
+    """
+    a = float(np.asarray(r_al_max, dtype=np.float64).ravel()[-1])
+    b = float(np.asarray(r_max_eig, dtype=np.float64).ravel()[-1])
+    if not (np.isfinite(a) and np.isfinite(b)) or b <= 0:
+        raise ValueError(f"invalid radii for r_max check: {a!r}, {b!r}")
+    rel = abs(a - b) / b
+    if rel > rtol:
+        msg = (
+            f"{label} ends at r = {a:.15g} but the eigenfunction grid ends at r_max = {b:.15g} "
+            f"(relative mismatch {rel:.3e} > rtol={rtol:g}). Rescaling one onto the other would "
+            "silently stretch all radii; check the RS box length, the length units and the axion mass."
+        )
+        if raise_error:
+            raise ValueError(msg)
+        warnings.warn(msg, RuntimeWarning, stacklevel=2)
+    return rel
+
+
+def rescale_r_to_eigen_rmax(
+    r_values: np.ndarray,
+    r_max_eig: float,
+    *,
+    rtol: float = 1e-6,
+) -> np.ndarray:
+    """``(r_values / r_values[-1]) * r_max_eig`` after :func:`check_rmax_consistency`.
+
+    This reproduces the radial-grid line of ``compute_c_nlm.ipynb``
+    bit for bit, but refuses to stretch the grid when the two outer radii
+    disagree by more than ``rtol``.
+    """
+    r_values = np.asarray(r_values, dtype=np.float64)
+    check_rmax_consistency(r_values, r_max_eig, rtol=rtol)
+    return (r_values / r_values[-1]) * r_max_eig
+
+
 def load_eigenfunctions(
     eigs_path: str,
     l_subset: Optional[Iterable[int]] = None,
     n_subset: Optional[Dict[int, Iterable[int]]] = None,
 ) -> Tuple[np.ndarray, Dict[Tuple[int, int], np.ndarray]]:
-    """Load radial eigenfunctions ``f_{n\ell}(r)`` from an HDF5 file.
+    r"""Load radial eigenfunctions ``f_{n\ell}(r)`` from an HDF5 file.
 
     Parameters
     ----------
@@ -305,39 +440,46 @@ def load_eigenfunctions(
     return r_f, f_dict
 
 
-def _parse_rmax_from_filename(filename: str) -> Optional[float]:
-    """Attempt to extract the maximum radius encoded in the a_lm filename.
+_RMAX_TOKEN_RE = re.compile(
+    r"(?:^|[_\-.(])r_?max[_=\-]?([0-9]+(?:\.[0-9]*)?(?:[eE][+\-]?[0-9]+)?)(?=$|[_\-()]|\.h5$|\.hdf5$)",
+    re.IGNORECASE,
+)
 
-    The naming convention used by ``a_lm.py`` embeds a floating point
-    value after the substring ``psi_alm_``; for example,
-    ``PyUL_psi_alm_0.05_(1,0,0)_mass50_256.h5`` suggests ``r_max`` is
-    0.05.  This helper function extracts the substring between
-    ``psi_alm_`` and the next underscore and converts it to a float.
+
+def _parse_rmax_from_filename(filename: str) -> Optional[float]:
+    """Extract an *explicit* maximum radius token from an a_lm file name.
+
+    Only an explicit ``rmax`` token is recognised, e.g.
+    ``PyUL_psi_alm_rmax0.206_mass170.h5``, ``..._rmax_0.206_...`` or
+    ``..._r_max=0.206.h5`` (case-insensitive).  The value must be in the
+    units of the eigenfunction grid (code units).
+
+    Historical note: before version 0.3.0 the number after ``psi_alm_`` was
+    taken as r_max.  The paper's own file name
+    ``PyUL_psi_alm_0.02_mass170_256.h5`` would then have been read as
+    r_max = 0.02 (that number is the BH mass ratio), so that convention is no
+    longer used; such names return ``None`` and :func:`load_a_lm` asks for an
+    explicit ``r_al``.
 
     Parameters
     ----------
     filename : str
-        Name (not path) of the HDF5 file.
+        Name or path of the HDF5 file.
 
     Returns
     -------
     float or None
-        The parsed radius if extraction succeeds, otherwise ``None``.
+        The parsed radius, or ``None`` when the name has no explicit token.
     """
-    base = os.path.basename(filename)
-    marker = 'psi_alm_'
-    if marker not in base:
+    base = os.path.basename(str(filename))
+    match = _RMAX_TOKEN_RE.search(base)
+    if match is None:
         return None
-    start = base.find(marker) + len(marker)
-    # Find the next underscore after the marker
-    end = base.find('_', start)
-    if end == -1:
-        return None
-    token = base[start:end]
     try:
-        return float(token)
-    except Exception:
+        val = float(match.group(1))
+    except ValueError:
         return None
+    return val if val > 0 else None
 
 
 def load_a_lm(
@@ -349,8 +491,13 @@ def load_a_lm(
     start_index: Optional[int] = None,
     end_index: Optional[int] = None,
     verbose: bool = False,
+    *,
+    times: Optional[np.ndarray] = None,
+    snapshot_indices: Optional[Iterable[int]] = None,
+    save_interval: Optional[float] = None,
+    time_source: str = 'auto',
 ) -> Dict[str, Any]:
-    """Load spherical harmonic coefficients ``a_{ℓm}(r,t)`` from an HDF5 file.
+    r"""Load spherical harmonic coefficients ``a_{ℓm}(r,t)`` from an HDF5 file.
 
     This function opens the HDF5 file created by ``create_sh_hdf5`` and
     reconstructs the complex spherical harmonic coefficients at each
@@ -360,18 +507,32 @@ def load_a_lm(
     two‑dimensional complex array of shape ``(n_r, n_times)``.
 
     If a radial grid ``r_al`` is not supplied, the function attempts
-    to infer one.  First it looks for a dataset named ``r`` in the
-    HDF5 file; if not found it tries to parse the filename for an
-    embedded maximum radius as produced by ``a_lm.py``.  In either
-    case the grid is assumed to be uniformly spaced with ``n_r``
-    points and the first element set to ``1e-5``.
+    to infer one, in this order: ``r_max_override``; a dataset named
+    ``r`` in the file; the root attribute ``r_values_code`` (written by
+    toolkit >= 0.3.0, code units, i.e. the units of the eigenfunction
+    grid); the root attribute ``r_values`` when its ``r_units`` attribute
+    is ``''`` (code units); and finally an explicit ``rmax`` token in the
+    file name (see :func:`_parse_rmax_from_filename`).  The ``r_max`` based
+    variants build a uniform grid of ``n_r`` points with the first element
+    set to ``1e-5``.
 
-    The time grid is constructed as a linear interpolation between
-    0 and ``final_time`` with ``n_times`` points, where ``n_times``
-    equals the number of ``alm_*`` groups in the file (optionally
-    restricted by ``start_index`` and ``end_index``).  If these
-    indices are provided only the specified range of time steps is
-    loaded.
+    Time axis (``time_source``)
+    ---------------------------
+    * ``'auto'`` (default): explicit ``times`` > explicit
+      ``snapshot_indices`` times ``save_interval`` > the root attribute
+      ``times`` of files written by toolkit >= 0.3.0 > the historical
+      default ``linspace(0, final_time, n_times)``.  For files without
+      time attributes (all historical files) and no explicit arguments the
+      result is therefore unchanged.
+    * ``'legacy'``: always ``linspace(0, final_time, n_times)``.
+    * ``'file'``: require the ``times`` attribute in the file.
+
+    ``n_times`` is the number of ``alm_*`` groups in the file, optionally
+    restricted by ``start_index`` and ``end_index`` (positions of the
+    groups in the file, not PyUL snapshot numbers).  Note that the legacy
+    time axis always starts at 0 even when the file starts at a later
+    snapshot; use ``snapshot_indices``/``save_interval`` or ``times`` (or a
+    file with time attributes) to get the true times.
 
     Parameters
     ----------
@@ -404,6 +565,21 @@ def load_a_lm(
     verbose : bool, optional
         If True print diagnostic messages when inferring grids.
 
+    times : array-like, optional
+        Explicit times of the selected groups (length ``n_times``).
+
+    snapshot_indices : iterable of int, optional
+        PyUL snapshot numbers of the selected groups; with
+        ``save_interval`` (time between PyUL saves, i.e.
+        ``duration/save_number``) the times are
+        ``snapshot_indices * save_interval``.
+
+    save_interval : float, optional
+        See ``snapshot_indices``.
+
+    time_source : {'auto', 'legacy', 'file'}
+        See "Time axis" above.
+
     Returns
     -------
     dict
@@ -415,6 +591,12 @@ def load_a_lm(
           containing the time values in physical units.
         - ``'a_lm'``: mapping from ``(ℓ,m)`` to a complex array of
           shape ``(n_r, n_times)`` storing ``a_{ℓm}(r,t)``.
+        - ``'snapshot_indices'``: PyUL snapshot numbers of the loaded
+          groups when known (explicit argument or file attribute), else
+          ``None``.
+        - ``'time_source'``: which rule produced ``'t'``.
+        - ``'attrs'``: the root attributes of the file (empty for
+          historical files).
 
     Raises
     ------
@@ -431,8 +613,13 @@ def load_a_lm(
         raise ImportError(
             "h5py is required to read spherical harmonic data but is not installed."
         )
+    from ._h5meta import read_array_attr, attrs_to_dict
+
+    if time_source not in ('auto', 'legacy', 'file'):
+        raise ValueError("time_source must be one of 'auto', 'legacy', 'file'.")
     # Open the file and enumerate groups
     with h5py.File(alm_path, 'r') as f:
+        file_attrs = attrs_to_dict(f.attrs)
         # Identify time groups (alm_000000, alm_000001, ...)
         group_names = [name for name in f.keys() if name.startswith('alm_')]
         if not group_names:
@@ -510,11 +697,27 @@ def load_a_lm(
                 if candidate.ndim == 1 and candidate.size == n_r:
                     r_al_use = candidate
             if r_al_use is None:
-                # Attempt to parse r_max from filename
+                # Provenance attributes written by toolkit >= 0.3.0
+                cand = read_array_attr(f.attrs, 'r_values_code')
+                if cand is None and str(file_attrs.get('r_units', 'unknown')) == '':
+                    cand = read_array_attr(f.attrs, 'r_values')
+                if cand is not None:
+                    cand = np.asarray(cand, dtype=np.float64)
+                    if cand.ndim == 1 and cand.size == n_r:
+                        r_al_use = cand
+                        if verbose:
+                            print("Using radial grid from the file attributes (code units).")
+            if r_al_use is None:
+                # Attempt to parse an explicit rmax token from the filename
                 rmax = _parse_rmax_from_filename(os.path.basename(alm_path))
                 if rmax is None:
+                    hint = ''
+                    if read_array_attr(f.attrs, 'r_values') is not None:
+                        hint = (f" The file stores 'r_values' in units {file_attrs.get('r_units')!r}; convert"
+                                " them to code units (the units of the eigenfunction grid) and pass r_al.")
                     raise ValueError(
                         "Cannot infer radial grid; provide r_al or r_max_override, or store an 'r' dataset."
+                        + hint
                     )
                 # Uniform grid between r=0 and r=rmax inclusive.  First point replaced by 1e-5
                 r_tmp = np.linspace(0.0, rmax, n_r, endpoint=True, dtype=np.float64)
@@ -523,8 +726,43 @@ def load_a_lm(
             r_al_final = r_al_use
             if verbose:
                 print(f"Inferred radial grid of length {n_r} with r_max = {r_al_final[-1]:.6g}")
-        # Construct time vector from 0 to final_time inclusive
-        t_array = np.linspace(0.0, float(final_time), n_times, endpoint=True, dtype=np.float64)
+        # Snapshot indices of the selected groups, when known
+        sel_snap: Optional[np.ndarray] = None
+        file_snap = read_array_attr(f.attrs, 'snapshot_indices')
+        if snapshot_indices is not None:
+            sel_snap = np.asarray(list(snapshot_indices), dtype=np.int64)
+            if sel_snap.shape != (n_times,):
+                raise ValueError(
+                    f"snapshot_indices has length {sel_snap.size}, expected {n_times} (selected groups)."
+                )
+        elif file_snap is not None and np.size(file_snap) == total_groups:
+            sel_snap = np.asarray(file_snap, dtype=np.int64)[s_idx:e_idx + 1]
+        # Construct the time vector
+        file_times = read_array_attr(f.attrs, 'times')
+        if file_times is not None and np.size(file_times) != total_groups:
+            file_times = None
+        if time_source == 'legacy':
+            t_used = 'legacy linspace(0, final_time, n_times)'
+            t_array = np.linspace(0.0, float(final_time), n_times, endpoint=True, dtype=np.float64)
+        elif times is not None:
+            t_array = np.asarray(times, dtype=np.float64)
+            if t_array.shape != (n_times,):
+                raise ValueError(f"times has shape {t_array.shape}, expected ({n_times},).")
+            t_used = 'explicit times'
+        elif snapshot_indices is not None and save_interval is not None:
+            t_array = sel_snap.astype(np.float64) * float(save_interval)
+            t_used = 'snapshot_indices * save_interval'
+        elif file_times is not None:
+            t_array = np.asarray(file_times, dtype=np.float64)[s_idx:e_idx + 1]
+            t_used = 'file attribute times'
+            if final_time != 1.0 and verbose:
+                print(f"Using the time axis stored in the file (final_time={final_time} ignored).")
+        elif time_source == 'file':
+            raise ValueError(f"time_source='file' but {alm_path} has no usable 'times' attribute.")
+        else:
+            t_used = 'legacy linspace(0, final_time, n_times)'
+            # Construct time vector from 0 to final_time inclusive
+            t_array = np.linspace(0.0, float(final_time), n_times, endpoint=True, dtype=np.float64)
         # Loop over selected time groups and populate a_lm arrays
         for t_idx, gname in enumerate(sel_group_names):
             grp = f[gname]
@@ -546,6 +784,9 @@ def load_a_lm(
             'r': r_al_final,
             't': t_array,
             'a_lm': a_lm,
+            'snapshot_indices': sel_snap,
+            'time_source': t_used,
+            'attrs': file_attrs,
         }
 
 
@@ -564,7 +805,7 @@ def compute_cnlm(
     num_workers: int = 1,
     progress: bool = False,
 ) -> Tuple[np.ndarray, Dict[Tuple[int, int, int], np.ndarray]]:
-    """Compute the spectral coefficients ``c_{n\ell m}(t)`` via radial integration.
+    r"""Compute the spectral coefficients ``c_{n\ell m}(t)`` via radial integration.
 
     Given a set of radial eigenfunctions ``f_{n\ell}(r)`` on a fine
     grid ``r_f`` and spherical harmonic coefficients ``a_{\ell m}(r,t)`` on
@@ -796,7 +1037,7 @@ def compute_cnlm(
             a_interp = interp_func(r_int)
             # Compute integrand and integrate
             integrand = weight * f_vec_int * a_interp
-            c_arr[j] = np.trapz(integrand, dx=dr_int)
+            c_arr[j] = _trapezoid(integrand, dx=dr_int)
         return (n_idx, ell, m_val), c_arr
 
     # Serial computation with progress reporting
@@ -839,24 +1080,31 @@ def compute_cnlm(
             _render_progress_serial(100, job_count, total_jobs)
             print()
     else:
-        # Parallel computation using multiprocessing.Pool and a global worker
-        import multiprocessing as mp  # import lazily to avoid overhead when unused
-        # Build list of tasks for each (ell, n_idx, m_val) triple
-        tasks: List[Tuple[int, int, int]] = []
+        # Parallel computation using a multiprocessing pool (start method from _compat.mp_context,
+        # i.e. ULDM_MP_START_METHOD or the platform default) and a global worker
+        # Build one task per (ell, m_val) carrying only that a_lm matrix and the
+        # list of n for this ell.  Previously the whole a_lm dictionary was
+        # pickled into every worker through the pool initializer (about
+        # 250 MB per worker for the paper's 121 x 257 x 501 a_lm).  Results are
+        # bitwise identical (same arithmetic per (n, ell, m, t)).
+        n_by_ell: Dict[int, List[int]] = {}
         for (ell, n_idx) in f_on_grid.keys():
-            # Determine m values present in a_lm for this ell
+            n_by_ell.setdefault(ell, []).append(n_idx)
+        tasks_lm = []
+        for ell in sorted(n_by_ell):
             for m_val in range(-ell, ell + 1):
                 if (ell, m_val) in a_lm:
-                    tasks.append((ell, n_idx, m_val))
+                    tasks_lm.append((ell, m_val, sorted(n_by_ell[ell]), a_lm[(ell, m_val)]))
+        n_triples = sum(len(t[2]) for t in tasks_lm)
         # Use pool initializer to populate global variables in each worker.
         # Without an initializer the ``spawn`` start method (default on Windows) would
         # create child processes with empty module state, causing KeyError.
-        with mp.Pool(
+        with _mp_context().Pool(
             processes=num_workers,
-            initializer=_init_cnlm_worker,
-            initargs=(r_int, weight, dr_int, n_times, r_al_arr, r_interp_kind, f_on_grid, a_lm),
+            initializer=_init_cnlm_worker_lm,
+            initargs=(r_int, weight, dr_int, n_times, r_al_arr, r_interp_kind, f_on_grid),
         ) as pool:
-            total_jobs = len(tasks)
+            total_jobs = n_triples
             done = 0
             last_percent_print = -1
             worker_counts: Dict[str, int] = {}
@@ -880,17 +1128,18 @@ def compute_cnlm(
                 except Exception:
                     sys.stdout.write('\r' + msg)
                     sys.stdout.flush()
-            for key, c_arr, wname in pool.imap_unordered(_cnlm_worker, tasks):
-                c_dict[key] = c_arr
+            for results_lm, wname in pool.imap_unordered(_cnlm_worker_lm, tasks_lm):
+                for key, c_arr in results_lm:
+                    c_dict[key] = c_arr
                 if progress:
-                    done += 1
+                    done += len(results_lm)
                     # Map raw worker name to short alias W1, W2, ... for readability
                     if wname not in worker_alias:
                         alias = f"W{len(worker_alias) + 1}"
                         worker_alias[wname] = alias
                         alias_order.append(wname)
                     alias = worker_alias[wname]
-                    worker_counts[alias] = worker_counts.get(alias, 0) + 1
+                    worker_counts[alias] = worker_counts.get(alias, 0) + len(results_lm)
                     percent = int((done * 100) / total_jobs) if total_jobs > 0 else 100
                     if percent != last_percent_print:
                         _render_progress_parallel(percent, done)
@@ -913,14 +1162,21 @@ def resample_cnlm_time(
     t_out: np.ndarray,
     method: str = 'pchip',
 ) -> Dict[Tuple[int, int, int], np.ndarray]:
-    """Resample precomputed ``c_{nlm}(t)`` onto a new time grid.
+    r"""Resample precomputed ``c_{nlm}(t)`` onto a new time grid.
 
-        Supported methods:
-            - 'nearest', 'linear', 'cubic' (scipy.interpolate.interp1d)
-      - 'pchip'  (shape-preserving cubic Hermite; smooth, no ringing; stable at endpoints)
-      - 'akima'  (Akima1DInterpolator; robust to noise, reduces oscillations)
-      - 'cspline-natural' (CubicSpline with natural boundary conditions)
-            - 'nearest-smooth' / 'nearest-savgol' (pipeline: nearest then Savitzky–Golay smoothing on |c|)
+    Supported methods:
+
+    - 'nearest', 'linear', 'cubic' (scipy.interpolate.interp1d).  Since
+      version 0.3.0 'nearest' is pure nearest-neighbour sampling; before, it
+      silently applied the same Savitzky–Golay smoothing as
+      'nearest-savgol'.  Use 'nearest-savgol' (as the paper notebooks do) to
+      reproduce the historical dense files.
+    - 'pchip'  (shape-preserving cubic Hermite; smooth, no ringing; stable at endpoints)
+    - 'akima'  (Akima1DInterpolator; robust to noise, reduces oscillations)
+    - 'cspline-natural' (CubicSpline with natural boundary conditions)
+    - 'nearest-smooth' / 'nearest-savgol' (pipeline: nearest then Savitzky–Golay
+      smoothing of |c|; the phase stays piecewise constant, so the result is
+      not suitable for phase or spectral work)
 
     Will gracefully degrade order when sample count is insufficient.
 
@@ -958,7 +1214,7 @@ def resample_cnlm_time(
         if np.iscomplexobj(y):
             # For nearest-smooth pipeline we must treat complex as a whole to preserve phase.
             m_lower = (method or 'linear').lower()
-            if m_lower in ('nearest', 'nearest-smooth', 'nearest-savgol'):
+            if m_lower in ('nearest-smooth', 'nearest-savgol'):
                 # 1) nearest on complex series
                 f_nn = _interp.interp1d(
                     t_in_arr, y, kind='nearest', bounds_error=False,
@@ -1016,7 +1272,7 @@ def resample_cnlm_time(
         elif m in ('cspline-natural',):
             if n_in < 3:
                 eff = 'linear'
-        elif m in ('nearest', 'nearest-smooth', 'nearest-savgol'):
+        elif m in ('nearest-smooth', 'nearest-savgol'):
             # Complex branch handled above; for real, run pipeline here
             f_nn = _interp.interp1d(
                 t_in_arr, y, kind='nearest', bounds_error=False,
@@ -1047,7 +1303,8 @@ def resample_cnlm_time(
         elif m in ('linear', 'nearest'):
             pass
         else:
-            raise ValueError("method must be one of 'nearest','linear','cubic','pchip','akima','cspline-natural'.")
+            raise ValueError("method must be one of 'nearest','linear','cubic','pchip','akima','cspline-natural',"
+                             "'nearest-smooth','nearest-savgol'.")
 
         if eff in ('nearest', 'linear', 'cubic'):
             f = _interp.interp1d(
@@ -1114,8 +1371,9 @@ def save_cnlm_to_h5(
     Parameters
     ----------
     c_dict : dict
-        Mapping from ``(ℓ,n,m)`` tuples to one‑dimensional complex
-        arrays of the same length as ``t_array``.
+        Mapping from ``(n, ℓ, m)`` tuples (the key order returned by
+        :func:`compute_cnlm`) to one‑dimensional complex arrays of the same
+        length as ``t_array``.
 
     t_array : np.ndarray
         One‑dimensional array of time values.  Must match the length of
@@ -1127,6 +1385,9 @@ def save_cnlm_to_h5(
 
     metadata : dict, optional
         Additional metadata to attach as attributes on the root group.
+        Values that HDF5 cannot store natively (dicts, mixed lists, None)
+        are stored as JSON strings.  Attributes never change the group and
+        dataset layout.
 
     Raises
     ------
@@ -1157,8 +1418,8 @@ def save_cnlm_to_h5(
         f.create_dataset('t', data=t_arr, dtype='float64')
         # Write metadata
         if metadata is not None:
-            for k, v in metadata.items():
-                f.attrs[k] = v
+            from ._h5meta import write_attrs
+            write_attrs(f.attrs, metadata)
         # The hierarchical structure: /n/<n>/l/<ℓ>/m_<m>
         for (n_val, ell_val, m_val), arr in c_dict.items():
             # Create group path '/n/<n_val>/l/<ell_val>'

@@ -524,6 +524,17 @@ def plot_4panel_eda(result: SpectralAnalysisResult, figsize: Tuple[float, float]
     return fig
 
 
+def _safe_print(*args, **kwargs) -> None:
+    """print() that never fails on a console whose encoding lacks a character (e.g. cp1252 on Windows)."""
+    try:
+        print(*args, **kwargs)
+    except UnicodeEncodeError:
+        import sys
+        enc = getattr(sys.stdout, "encoding", None) or "ascii"
+        text = kwargs.get("sep", " ").join(str(x) for x in args)
+        print(text.encode(enc, "replace").decode(enc), **{k: v for k, v in kwargs.items() if k != "sep"})
+
+
 def print_spectral_summary(result: SpectralAnalysisResult, top_k: int = 5) -> None:
     """
     Print formatted spectral analysis summary.
@@ -535,79 +546,79 @@ def print_spectral_summary(result: SpectralAnalysisResult, top_k: int = 5) -> No
     top_k : int
         Number of peaks to print
     """
-    print("\n===== 4-panel quick readout (math-only) =====")
-    print(f"Analysis mode: {result.mode_label}")
-    print(result.fft_note)
+    _safe_print("\n===== 4-panel quick readout (math-only) =====")
+    _safe_print(f"Analysis mode: {result.mode_label}")
+    _safe_print(result.fft_note)
     
-    print("\n[1] Time-domain decomposition:")
+    _safe_print("\n[1] Time-domain decomposition:")
     if result.is_real_signal:
-        print(f"  - Plotted {result.mode_label} directly.")
+        _safe_print(f"  - Plotted {result.mode_label} directly.")
     else:
-        print("  - Black line |c(t)| is the envelope; blue/orange are Re/Im.")
+        _safe_print("  - Black line |c(t)| is the envelope; blue/orange are Re/Im.")
     
-    print("\n[2] Frequency domain:")
+    _safe_print("\n[2] Frequency domain:")
     global_max = float(np.max(result.mag)) if result.mag.size > 0 else 1.0
     
-    print(f"\n  Spectral peaks (threshold = 5% of max):")
-    print(f"\n    Positive frequency peaks ({len(result.peaks_pos)} detected):")
+    _safe_print(f"\n  Spectral peaks (threshold = 5% of max):")
+    _safe_print(f"\n    Positive frequency peaks ({len(result.peaks_pos)} detected):")
     if result.peaks_pos:
         for i, (f, a) in enumerate(result.peaks_pos[:top_k], 1):
             rel = a / global_max if global_max > 0 else 0
-            print(f"      {i}. f = {f: .6g},  |FFT| = {a: .6g},  rel_amp = {rel: .4f}")
+            _safe_print(f"      {i}. f = {f: .6g},  |FFT| = {a: .6g},  rel_amp = {rel: .4f}")
     else:
-        print("      (none)")
+        _safe_print("      (none)")
     
     if not result.is_real_signal:
-        print(f"\n    Negative frequency peaks ({len(result.peaks_neg)} detected):")
+        _safe_print(f"\n    Negative frequency peaks ({len(result.peaks_neg)} detected):")
         if result.peaks_neg:
             for i, (f, a) in enumerate(result.peaks_neg[:top_k], 1):
                 rel = a / global_max if global_max > 0 else 0
-                print(f"      {i}. f = {f: .6g},  |FFT| = {a: .6g},  rel_amp = {rel: .4f}")
+                _safe_print(f"      {i}. f = {f: .6g},  |FFT| = {a: .6g},  rel_amp = {rel: .4f}")
         else:
-            print("      (none)")
+            _safe_print("      (none)")
     
     if result.dc_is_peak:
         rel_dc = result.dc_mag / global_max if global_max > 0 else 0
-        print(f"\n    DC peak (f=0): |FFT| = {result.dc_mag: .6g}, rel_amp = {rel_dc: .4f}")
+        _safe_print(f"\n    DC peak (f=0): |FFT| = {result.dc_mag: .6g}, rel_amp = {rel_dc: .4f}")
     
-    print(f"\n  Peak pattern detected: {result.peak_pattern}")
+    _safe_print(f"\n  Peak pattern detected: {result.peak_pattern}")
     
     if result.significant_peaks:
-        print(f"  Significant peaks (rel_amp >= 0.30):")
+        _safe_print(f"  Significant peaks (rel_amp >= 0.30):")
         for i, (f, a) in enumerate(result.significant_peaks[:top_k], 1):
             rel = a / global_max if global_max > 0 else 0
-            print(f"    {i}. f = {f: .6g},  |FFT| = {a: .6g},  rel_amp = {rel: .4f}")
+            _safe_print(f"    {i}. f = {f: .6g},  |FFT| = {a: .6g},  rel_amp = {rel: .4f}")
     
-    print("\n[3] Trajectory plot:")
+    _safe_print("\n[3] Trajectory plot:")
     if result.is_real_signal:
-        print("  - Shows signal value vs time.")
+        _safe_print("  - Shows signal value vs time.")
     else:
-        print("  - Near-circle: single frequency; spiral/petal: multi-frequency.")
+        _safe_print("  - Near-circle: single frequency; spiral/petal: multi-frequency.")
     
-    print("\n[4] Phase dynamics:")
+    _safe_print("\n[4] Phase dynamics:")
     if result.phase_available:
-        print(f"  - Phase-derived frequency f_phase ≈ {result.f_phase:.6g}")
+        _safe_print(f"  - Phase-derived frequency f_phase ~= {result.f_phase:.6g}")
     else:
-        print("  - Not available for real signals.")
+        _safe_print("  - Not available for real signals.")
     
     # Summary
-    print("\n===== Spectral Analysis Summary =====")
+    _safe_print("\n===== Spectral Analysis Summary =====")
     if result.peak_pattern == 'dc_only':
-        print("CONCLUSION: DC-dominated (approximately constant)")
+        _safe_print("CONCLUSION: DC-dominated (approximately constant)")
     elif result.peak_pattern == 'single':
         f_dom = result.significant_peaks[0][0]
-        print(f"CONCLUSION: Single-frequency dominated, f ≈ {f_dom:.6g}")
+        _safe_print(f"CONCLUSION: Single-frequency dominated, f ~= {f_dom:.6g}")
     elif result.peak_pattern == 'two':
         f1, f2 = sorted([result.significant_peaks[0][0], result.significant_peaks[1][0]])
-        print(f"CONCLUSION: Two-frequency beating, f1 ≈ {f1:.6g}, f2 ≈ {f2:.6g}")
-        print(f"  - Δf ≈ {abs(f2-f1):.6g}")
+        _safe_print(f"CONCLUSION: Two-frequency beating, f1 ~= {f1:.6g}, f2 ~= {f2:.6g}")
+        _safe_print(f"  - df ~= {abs(f2-f1):.6g}")
     elif result.peak_pattern == 'multiple':
-        print(f"CONCLUSION: Multi-frequency superposition ({len(result.significant_peaks)} peaks)")
+        _safe_print(f"CONCLUSION: Multi-frequency superposition ({len(result.significant_peaks)} peaks)")
     else:
-        print("CONCLUSION: No clear peak structure")
+        _safe_print("CONCLUSION: No clear peak structure")
     
     if np.isfinite(result.f_env):
-        print(f"\nEnvelope frequency f_env ≈ {result.f_env:.6g}")
+        _safe_print(f"\nEnvelope frequency f_env ~= {result.f_env:.6g}")
 
 
 def export_prd_figure(
@@ -616,6 +627,7 @@ def export_prd_figure(
     figsize: Tuple[float, float] = (7.6, 3.1),
     time_xlim: Optional[Tuple[float, float]] = None,
     save_pdf: bool = True,
+    time_unit: str = 'Myr',
 ) -> Path:
     """
     Export PRD-ready 1×2 figure (time domain + spectrum).
@@ -634,7 +646,10 @@ def export_prd_figure(
         are auto-scaled using only data inside this range.
     save_pdf : bool
         Whether to additionally export a PDF next to EPS.
-    
+    time_unit : str
+        Unit of ``result.t`` used in the axis labels (default 'Myr', as in the
+        paper); frequencies are labelled in ``time_unit``^-1.
+
     Returns
     -------
     Path to saved EPS file
@@ -686,13 +701,13 @@ def export_prd_figure(
             ax1.plot(t, x.real, color='C0', linewidth=1.15, linestyle='--', label=rf"$\mathrm{{Re}}\,[{c_nlm_tex}]$")
             ax1.plot(t, x.imag, color='C1', linewidth=1.15, linestyle=':', label=rf"$\mathrm{{Im}}\,[{c_nlm_tex}]$")
         
-        ax1.set_xlabel(r"Time $t$ (Myr)")
+        ax1.set_xlabel(rf"Time $t$ ({time_unit})")
         ax1.set_ylabel("Amplitude")
 
         # Optional envelope-frequency text in legend
         if np.isfinite(result.f_env):
             f_env_tex = _sci_tex(float(result.f_env), digits=2)
-            ax1.plot([], [], ' ', label=rf"$f_{{\mathrm{{env}}}}\approx {f_env_tex}\,\mathrm{{Myr}}^{{-1}}$")
+            ax1.plot([], [], ' ', label=rf"$f_{{\mathrm{{env}}}}\approx {f_env_tex}\,\mathrm{{{time_unit}}}^{{-1}}$")
 
         ax1.legend(
             loc='upper left',
@@ -731,15 +746,15 @@ def export_prd_figure(
                     np.asarray(x.imag, dtype=float),
                 ])
 
-            m = (t >= t0) & (t <= t1)
-            if np.any(m):
+            in_win = (t >= t0) & (t <= t1)
+            if np.any(in_win):
                 if result.is_real_signal:
-                    y_win = np.asarray(x[m], dtype=float)
+                    y_win = np.asarray(x[in_win], dtype=float)
                 else:
                     y_win = np.concatenate([
-                        np.asarray(np.abs(x[m]), dtype=float),
-                        np.asarray(x.real[m], dtype=float),
-                        np.asarray(x.imag[m], dtype=float),
+                        np.asarray(np.abs(x[in_win]), dtype=float),
+                        np.asarray(x.real[in_win], dtype=float),
+                        np.asarray(x.imag[in_win], dtype=float),
                     ])
                 y_abs_max = float(np.max(np.abs(y_win))) if y_win.size else 0.0
             else:
@@ -777,7 +792,7 @@ def export_prd_figure(
             x_margin = 0.12 * span_now
             x_text = 0.5 * (f1 + f2)
             x_text = min(max(x_text, float(xlo_now) + x_margin), float(xhi_now) - x_margin)
-            ax2.text(x_text, y_frac + 0.06, rf"$\Delta f\approx {df_tex}\,\mathrm{{Myr}}^{{-1}}$",
+            ax2.text(x_text, y_frac + 0.06, rf"$\Delta f\approx {df_tex}\,\mathrm{{{time_unit}}}^{{-1}}$",
                     color='red', ha='center', va='bottom',
                 transform=ax2.get_xaxis_transform(), fontsize=9.2,
                     bbox=dict(facecolor='white', edgecolor='none', pad=1.5))
@@ -821,7 +836,7 @@ def export_prd_figure(
             if np.isfinite(y_bottom) and np.isfinite(y_top) and (y_top > y_bottom):
                 ax2.set_ylim(y_bottom, y_top)
         
-        ax2.set_xlabel(r"Frequency $f$ (Myr$^{-1}$)")
+        ax2.set_xlabel(rf"Frequency $f$ ({time_unit}$^{{-1}}$)")
         ax2.set_ylabel(rf"$|{c_freq_tex}|$")
         
         fig.savefig(eps_path, format='eps', bbox_inches='tight')
@@ -895,9 +910,10 @@ def plot_cnlm_prd_single(
     key: Tuple[int, int, int],
     normalization: float = 1.0,
     save_path: Optional[Path] = None,
-    xlim: Tuple[float, float] = (0.0, 3000.0),
+    xlim: Optional[Tuple[float, float]] = (0.0, 3000.0),
     figsize: Tuple[float, float] = (3.5, 2.6),
     color: str = 'red',
+    time_unit: str = 'Myr',
 ) -> Path:
     """
     Create PRD-ready single-mode |c_{nlm}(t)|^2 plot.
@@ -914,12 +930,15 @@ def plot_cnlm_prd_single(
         Normalization factor (divide |c|^2 by this)
     save_path : Path, optional
         Output path. If None, auto-generated.
-    xlim : tuple
-        Time axis limits
+    xlim : tuple or None
+        Time axis limits.  The default (0, 3000) is the paper's 3000 Myr run;
+        pass ``None`` to use the full range of ``t`` (e.g. for 30000 Myr runs).
     figsize : tuple
         Figure size
     color : str
         Line color
+    time_unit : str
+        Unit of ``t`` shown in the axis label (default 'Myr').
     
     Returns
     -------
@@ -972,9 +991,12 @@ def plot_cnlm_prd_single(
         fig, ax = plt.subplots(figsize=figsize)
         ax.plot(t, y, color=color, linewidth=2.0)
         
-        ax.set_xlabel(r'Time $t$ (Myr)')
+        ax.set_xlabel(rf'Time $t$ ({time_unit})')
         ax.set_ylabel(y_label)
-        ax.set_xlim(xlim)
+        if xlim is None:
+            ax.set_xlim(float(np.min(t)), float(np.max(t)))
+        else:
+            ax.set_xlim(xlim)
         
         ax.grid(False)
         ax.minorticks_on()
@@ -997,12 +1019,17 @@ def plot_cnlm_multimode(
     normalization: float = 1.0,
     figsize: Tuple[float, float] = (9.5, 5.5),
     log_scale: bool = True,
+    lw_zero: float = 3.5,
+    lw_pos: float = 1.5,
+    lw_neg: float = 2.5,
+    time_unit: Optional[str] = None,
 ) -> plt.Figure:
     """
     Plot |c_{nlm}(t)|^2 for multiple modes with color/linestyle encoding.
-    
-    Colors encode ℓ (rainbow gradient), linestyles encode |m|, 
-    line widths encode sign of m.
+
+    Colors encode ℓ (rainbow gradient), linestyles encode |m|,
+    line widths encode sign of m (defaults: m=0 3.5, m<0 2.5, m>0 1.5;
+    the legend title states the order that is actually drawn).
     
     Parameters
     ----------
@@ -1022,6 +1049,10 @@ def plot_cnlm_multimode(
         Figure size
     log_scale : bool
         Use log scale for y-axis
+    lw_zero, lw_pos, lw_neg : float
+        Line widths for m = 0, m > 0 and m < 0.
+    time_unit : str, optional
+        If given, the x label reads 'Time $t$ (<unit>)'.
     
     Returns
     -------
@@ -1066,9 +1097,9 @@ def plot_cnlm_multimode(
         return fallback_patterns[(k - 1) % len(fallback_patterns)]
     
     # Line width policy
-    LW_ZERO = 3.5
-    LW_NEG = 2.5
-    LW_POS = 1.5
+    LW_ZERO = float(lw_zero)
+    LW_NEG = float(lw_neg)
+    LW_POS = float(lw_pos)
     
     def linestyle_for_m(m: int):
         if m == 0:
@@ -1118,7 +1149,7 @@ def plot_cnlm_multimode(
             y_top = y_bottom * 10
         ax.set_ylim(y_bottom, y_top)
     
-    ax.set_xlabel('Time $t$', fontsize=12)
+    ax.set_xlabel('Time $t$' if time_unit is None else rf'Time $t$ ({time_unit})', fontsize=12)
     ax.set_ylabel(r'$|c_{nlm}(t)|^2$', fontsize=12)
     ax.set_title(
         rf'Time-resolved coefficients $|c_{{nlm}}(t)|^2$ for $n={n_select}$ and ${l_min} \leq \ell \leq {l_max}$',
@@ -1148,11 +1179,16 @@ def plot_cnlm_multimode(
     
     handles = ell_handles + m_handles
     labels = ell_labels + m_labels
-    
+
+    # Legend title states the width order that is actually drawn (the
+    # previous fixed text 'm=0>m_+>m_-' contradicted LW_NEG > LW_POS).
+    _w = sorted([(LW_ZERO, r'm=0'), (LW_POS, r'm_+'), (LW_NEG, r'm_-')], key=lambda t: -t[0])
+    _width_txt = r'Width: $' + '>'.join(lbl for _, lbl in _w) + r'$'
+
     ax.legend(
         handles,
         labels,
-        title=r'Degree $\ell$ (color)' + '\n' + r'Order $m$ (Style/Width)' + '\n' + r'Width: $m=0>m_+>m_-$',
+        title=r'Degree $\ell$ (color)' + '\n' + r'Order $m$ (Style/Width)' + '\n' + _width_txt,
         loc='upper left',
         bbox_to_anchor=(1.02, 1.0),
         borderaxespad=0.0,

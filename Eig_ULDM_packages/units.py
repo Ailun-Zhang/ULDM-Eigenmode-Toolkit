@@ -1,6 +1,32 @@
+"""PyUL code-unit conversions (G = hbar/m_a = 1), identical to PyUL_SK Current_SK.py.
+
+The axion mass is read from the environment variable ``PYUL_AXION_MASS_EV``
+**when this module is first imported** (default 1e-22 eV).  The paper runs
+used 1e-21 eV.  If the variable is not set, the first conversion emits one
+warning.  :func:`set_axion_mass` changes the mass afterwards (all
+conversion functions of this module use the new value; names copied
+earlier with ``from units import *`` are not updated).
+"""
 import math
 import os
+import warnings
+
+
+def _warn_if_default_axion_mass():
+    global _default_mass_warned
+    if _AXION_MASS_SOURCE == "default" and not _default_mass_warned:
+        _default_mass_warned = True
+        warnings.warn(
+            "PYUL_AXION_MASS_EV is not set, so Eig_ULDM_packages.units uses the default axion mass "
+            f"{axion_E:g} eV. The Stone Skipping paper runs used 1e-21 eV. Set PYUL_AXION_MASS_EV "
+            "before the first import of this module, or call units.set_axion_mass(value_in_eV).",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def convert(value, unit, type):
+    _warn_if_default_axion_mass()
     converted = 0
     if type == 'l':
         if unit == '':
@@ -98,6 +124,7 @@ def convert(value, unit, type):
 
 
 def convert_back(value, unit, type):
+    _warn_if_default_axion_mass()
     converted = 0
     if type == 'l':
         if unit == '':
@@ -155,7 +182,9 @@ def convert_back(value, unit, type):
         elif unit == 'km/h':
             converted = value / (1e3) * (60 * 60) / time_unit * length_unit
         elif unit == 'c':
-            converted = value * time_unit / length_unit / 299792458
+            # Inverse of convert(value, 'c', 'v') (fixed in 0.3.0; it used
+            # value * time_unit / length_unit / c before).
+            converted = value / time_unit * length_unit / 299792458
         else:
             raise NameError('Unsupported SPEED unit used')
 
@@ -207,7 +236,9 @@ omega_m0 = 0.31
 H_0 = 67.7 / (parsec * 1e3)  # s^-1
 pi = math.pi
 #axion_E = 1e-21  # Example value in eV, replace with actual value
-axion_E = float(os.environ.get("PYUL_AXION_MASS_EV", "1e-22"))
+_AXION_MASS_SOURCE = "env" if os.environ.get("PYUL_AXION_MASS_EV", "").strip() else "default"
+_default_mass_warned = False
+axion_E = float(os.environ.get("PYUL_AXION_MASS_EV", "").strip() or "1e-22")
 eV = 1.78266191e-36  # kg
 axion_mass = axion_E * eV
 
@@ -218,6 +249,37 @@ time_unit = (3 * H_0 ** 2 * omega_m0 / (8 * pi)) ** -0.5
 length_unit = (8 * pi * hbar ** 2 / (3 * axion_mass ** 2 * H_0 ** 2 * omega_m0)) ** 0.25
 mass_unit = (3 * H_0 ** 2 * omega_m0 / (8 * pi)) ** 0.25 * hbar ** 1.5 / (axion_mass ** 1.5 * G)
 energy_unit = mass_unit * length_unit ** 2 / (time_unit**2)
+
+
+def set_axion_mass(axion_mass_ev):
+    """Set the axion mass (in eV) used by all conversions of this module.
+
+    Recomputes ``axion_E``, ``axion_mass``, ``length_unit``, ``mass_unit``
+    and ``energy_unit`` with exactly the import-time formulas, so
+    ``set_axion_mass(1e-21)`` gives bitwise the same units as importing with
+    ``PYUL_AXION_MASS_EV=1e-21``.  ``time_unit`` does not depend on the mass.
+    """
+    global axion_E, axion_mass, length_unit, mass_unit, energy_unit, _AXION_MASS_SOURCE
+    value = float(axion_mass_ev)
+    if not (value > 0 and math.isfinite(value)):
+        raise ValueError(f"axion mass must be a positive finite number of eV, got {axion_mass_ev!r}")
+    axion_E = value
+    axion_mass = axion_E * eV
+    length_unit = (8 * pi * hbar ** 2 / (3 * axion_mass ** 2 * H_0 ** 2 * omega_m0)) ** 0.25
+    mass_unit = (3 * H_0 ** 2 * omega_m0 / (8 * pi)) ** 0.25 * hbar ** 1.5 / (axion_mass ** 1.5 * G)
+    energy_unit = mass_unit * length_unit ** 2 / (time_unit**2)
+    _AXION_MASS_SOURCE = "set_axion_mass"
+    return axion_E
+
+
+def get_axion_mass_ev():
+    """Axion mass (eV) currently used by this module."""
+    return axion_E
+
+
+def axion_mass_source():
+    """Where the axion mass came from: 'env', 'default' or 'set_axion_mass'."""
+    return _AXION_MASS_SOURCE
 
 # Example usage
 '''

@@ -1,0 +1,9 @@
+# The sdist carries everything the test suite reads, so `python -m pytest` runs from an unpacked sdist.
+graft tests
+graft paper_figures
+graft examples
+include compute_coeff.py submit_all_jobs_example.sh
+include Main.ipynb compute_c_nlm.ipynb f_nl_python.ipynb
+include CHANGELOG.md README.md LICENSE .zenodo.json .gitattributes
+global-exclude *.py[cod]
+global-exclude __pycache__

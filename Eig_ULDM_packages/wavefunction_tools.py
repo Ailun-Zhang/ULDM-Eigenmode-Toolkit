@@ -10,6 +10,8 @@ import time
 import numpy as np
 import multiprocessing as mp
 
+from ._compat import mp_context as _mp_context, sph_harm_ylm as _compat_sph_harm_ylm, trapezoid as _trapezoid
+
 try:
     from tqdm import tqdm
 except Exception:  # pragma: no cover - optional dependency
@@ -29,9 +31,9 @@ def _sph_harm_ylm_pyshtools(l: int, m: int, theta, phi):
 
 
 def _sph_harm_ylm_scipy(l: int, m: int, theta, phi):
-    from scipy.special import sph_harm as _scipy_sph_harm
-
-    return _scipy_sph_harm(m, l, phi, theta)
+    # SciPy >= 1.15: sph_harm_y(l, m, theta, phi); older SciPy: sph_harm(m, l, phi, theta)
+    # (sph_harm was removed in SciPy 1.17).  Both: orthonormal, Condon-Shortley phase.
+    return _compat_sph_harm_ylm(l, m, theta, phi)
 
 
 def _get_sph_harm_backend():
@@ -279,7 +281,7 @@ def build_initial_wavefunction(
     phase_const = float(Phase) * np.pi
 
     start_t = time.time()
-    with mp.get_context('fork').Pool(
+    with _mp_context().Pool(
         processes=nprocs,
         initializer=_init_build_worker,
         initargs=(
@@ -328,7 +330,7 @@ def build_initial_wavefunction(
     mode_masses = []
     if len(nz_modes) > 0:
         for i, (n_i, l_i, m_i), eps_i in nz_modes:
-            with mp.get_context('fork').Pool(
+            with _mp_context().Pool(
                 processes=nprocs,
                 initializer=_init_mode_mass_worker,
                 initargs=(
@@ -731,7 +733,7 @@ def compute_mode_fractions(
                 psi_deboost_path = os.path.abspath(c)
                 break
         if psi_deboost_path is None:
-            raise FileNotFoundError("未找到 deboost Psi 文件，尝试过：\n  " + "\n  ".join(uniq_candidates))
+            raise FileNotFoundError("Deboosted Psi file not found; tried:\n  " + "\n  ".join(uniq_candidates))
 
     print(f"[Mode fractions] Using Psi file: {psi_deboost_path}")
     print(f"[Mode fractions] Y_lm backend: {ylm_backend}")
@@ -771,7 +773,7 @@ def compute_mode_fractions(
             raise IndexError(f"l={l} n={n} out of range (0..{f_mat.shape[1]-1})")
         f_vals = np.asarray(f_mat[:, int(n)], dtype=float)
         radial_fn[(l, n)] = (r_grid_arr, f_vals)
-        radial_norm = float(np.trapz(np.abs(f_vals) ** 2 * (r_grid_arr ** 2), r_grid_arr))
+        radial_norm = float(_trapezoid(np.abs(f_vals) ** 2 * (r_grid_arr ** 2), r_grid_arr))
         if radial_norm <= 0:
             raise ValueError(f"l={l}, n={n} radial norm is invalid: {radial_norm}")
         radial_norms[(l, n)] = radial_norm
@@ -798,7 +800,7 @@ def compute_mode_fractions(
         rg, fr = radial_fn[(l, n)]
         norm = radial_norms[(l, n)]
         total = 0.0 + 0.0j
-        with mp.get_context('fork').Pool(
+        with _mp_context().Pool(
             processes=nprocs_modes,
             initializer=_init_mode_fraction_worker,
             initargs=(
