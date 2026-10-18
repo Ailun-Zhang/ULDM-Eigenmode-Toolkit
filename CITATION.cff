@@ -1,0 +1,68 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite it as below together with the Stone
+  Skipping paper (arXiv:2602.11512) listed under references.
+type: software
+title: "ULDM Eigenmode Toolkit"
+abstract: >-
+  Eigenfunctions f_nl(r) of a soliton potential and spectral coefficients
+  c_nlm(t) of ultralight dark matter wavefunctions from PyUL_SK simulations,
+  with a local resumable pipeline (uldm-cnlm), the inline recorder used by
+  PyUL_SK evolve(Cnlm=True), and scripts that regenerate every figure of
+  the Stone Skipping paper from its data deposit.
+version: "0.3.0"
+doi: 10.5281/zenodo.23454009
+date-released: "2026-10-18"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23454009
+    description: "Zenodo archive of release v0.3.0"
+  - type: doi
+    value: 10.5281/zenodo.23454008
+    description: "Zenodo concept DOI (all versions)"
+authors:
+  - family-names: Zhang
+    given-names: Alan
+    orcid: "https://orcid.org/0009-0000-1187-0755"
+    affiliation: >-
+      Australian National University (Research School of Physics & Research
+      School of Astronomy and Astrophysics); McMaster University; Perimeter
+      Institute for Theoretical Physics
+license: MIT
+repository-code: "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit"
+keywords:
+  - ultralight dark matter
+  - fuzzy dark matter
+  - soliton
+  - eigenmodes
+  - spherical harmonics
+  - PyUltraLight
+references:
+  - type: article
+    title: "Stone Skipping Black Holes in Ultralight Dark Matter Solitons"
+    authors:
+      - family-names: Zhang
+        given-names: Alan
+        orcid: "https://orcid.org/0009-0000-1187-0755"
+      - family-names: Wang
+        given-names: Yourong
+        orcid: "https://orcid.org/0000-0003-0340-0758"
+      - family-names: Zagorac
+        given-names: J. Luna
+        orcid: "https://orcid.org/0000-0003-4504-1677"
+      - family-names: Easther
+        given-names: Richard
+        orcid: "https://orcid.org/0000-0002-7233-665X"
+    year: 2026
+    doi: 10.48550/arXiv.2602.11512
+    url: "https://arxiv.org/abs/2602.11512"
+  - type: software
+    title: "PyUL_SK"
+    authors:
+      - family-names: Zhang
+        given-names: Alan
+      - family-names: Wang
+        given-names: Yourong F.
+    version: "30.50"
+    doi: 10.5281/zenodo.23454002
+    url: "https://github.com/Ailun-Zhang/PyUL_SK"

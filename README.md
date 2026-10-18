@@ -1,5 +1,7 @@
 # ULDM Eigenmode Toolkit
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23454008.svg)](https://doi.org/10.5281/zenodo.23454008)
+
 A Python library for computing the eigenfunctions $f_{nl}(r)$ of a soliton potential and the spectral
 coefficients $c_{nlm}(t)$ of ultralight dark matter (ULDM) wavefunctions from
 [PyUL_SK](https://github.com/Ailun-Zhang/PyUL_SK) simulations. It is the analysis code of *Stone Skipping
@@ -585,12 +587,15 @@ If you use this toolkit, please cite the paper and the software release:
   title   = {ULDM Eigenmode Toolkit},
   version = {0.3.0},
   year    = {2026},
+  doi     = {10.5281/zenodo.23454009},
   url     = {https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit}
 }
 ```
 
-Each GitHub release of this repository is archived on Zenodo, which mints a DOI for it; please add the DOI
-of the release you used (shown on its Zenodo record) to the software entry.
+Each GitHub release of this repository is archived on Zenodo with its own DOI. Release 0.3.0 is
+[doi:10.5281/zenodo.23454009](https://doi.org/10.5281/zenodo.23454009); the concept DOI
+[10.5281/zenodo.23454008](https://doi.org/10.5281/zenodo.23454008) always resolves to the latest release.
+If you use a different release, cite the DOI shown on its Zenodo record.
 
 The eigenmode decomposition builds on
 
