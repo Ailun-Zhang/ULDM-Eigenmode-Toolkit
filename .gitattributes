@@ -1,0 +1,10 @@
+# Normalise text files to LF in the repository and in checkouts.
+* text=auto eol=lf
+*.ipynb text eol=lf
+*.h5 binary
+*.hdf5 binary
+*.npy binary
+*.npz binary
+*.png binary
+*.pdf binary
+*.eps binary
