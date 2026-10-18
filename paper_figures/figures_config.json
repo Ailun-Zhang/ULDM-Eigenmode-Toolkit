@@ -1,0 +1,447 @@
+{
+  "_comment": [
+    "Default configuration = layout of the data deposit StoneSkipping_PRD_data_v1. Paths are RELATIVE to --data-root:",
+    "  <data-root>/runs/<run_key>.npz          single-file trajectory bundle per run (Eig_ULDM_packages.trajectories)",
+    "  <data-root>/cnlm/<run_key>_c_nlm.h5     c_nlm(t) files, byte-identical copies of the files PyUL runs wrote",
+    "  <data-root>/eigen/eigs_..._<sha8>.h5    the two radial eigenbasis files",
+    "  <data-root>/derived/...                 small derived files (validation references; fig02 --source csv)",
+    "original_run_id = the run folder name written by PyUL (<YYYYMMDD_HHMMSS>@<N>), for provenance only.",
+    "printed_figures = false marks supplementary runs that no default figure plots.",
+    "For raw PyUL run directories instead of bundles see figures_config.raw_example.json."
+  ],
+  "layout": "deposit",
+  "data_root": null,
+  "formats": [
+    "pdf",
+    "eps",
+    "png"
+  ],
+  "axion_mass_ev_fallback": null,
+  "soliton_mass_msun": 12000000.0,
+  "runs": {
+    "fig1_m1": {
+      "bundle": "runs/fig1_m1.npz",
+      "original_run_id": "20261007_180148@256",
+      "description": "single BH, 1% of the soliton mass, N=256, 5 kpc box, 3000 Myr, 500 saves (PyUL 30.4, analytic soliton IC)",
+      "model": "fully coupled",
+      "mass_percent": 1.0,
+      "printed_figures": true
+    },
+    "fig1_m1p5": {
+      "bundle": "runs/fig1_m1p5.npz",
+      "original_run_id": "20261007_180148@256",
+      "description": "single BH, 1.5%, N=256 (PyUL 30.4)",
+      "model": "fully coupled",
+      "mass_percent": 1.5,
+      "printed_figures": true
+    },
+    "single256_3000": {
+      "bundle": "runs/single256_3000.npz",
+      "original_run_id": "20251016_185657@256",
+      "description": "single BH, 2 %, N=256, 3000 Myr / 500 saves (PyUL 26.32, deboosted precompiled IC); Fig. 1 2 % curve; its c_nlm feeds Figs. 5 and 6",
+      "model": "fully coupled",
+      "mass_percent": 2.0,
+      "printed_figures": true
+    },
+    "fig1_m3": {
+      "bundle": "runs/fig1_m3.npz",
+      "original_run_id": "20261007_180148@256",
+      "description": "single BH, 3%, N=256 (PyUL 30.4)",
+      "model": "fully coupled",
+      "mass_percent": 3.0,
+      "printed_figures": true
+    },
+    "fig1_m4": {
+      "bundle": "runs/fig1_m4.npz",
+      "original_run_id": "20261007_180148@256",
+      "description": "single BH, 4%, N=256 (PyUL 30.4)",
+      "model": "fully coupled",
+      "mass_percent": 4.0,
+      "printed_figures": true
+    },
+    "fig1_m5": {
+      "bundle": "runs/fig1_m5.npz",
+      "original_run_id": "20261007_180148@256",
+      "description": "single BH, 5%, N=256 (PyUL 30.4)",
+      "model": "fully coupled",
+      "mass_percent": 5.0,
+      "printed_figures": true
+    },
+    "res128": {
+      "bundle": "runs/res128.npz",
+      "original_run_id": "20260920_131633@128",
+      "description": "resolution check N=128 rerun (PyUL 30.4), 2 % BH, 30000 Myr / 500 saves (the figure uses 0-3000 Myr); the published Fig. 2 N=128 curves come from THIS run",
+      "model": "fully coupled",
+      "printed_figures": true
+    },
+    "res128_jan2026": {
+      "bundle": "runs/res128_jan2026.npz",
+      "original_run_id": "20260118_004908@128",
+      "description": "earlier N=128 resolution run (PyUL 26.32), 30000 Myr / 500 saves; NOT the run plotted in the published Fig. 2 (max |dr_sys| 0.053 pc, P_dip up to 3.5 % different in 0-3000 Myr); supplementary, used by fig02 --run-128 res128_jan2026",
+      "model": "fully coupled",
+      "printed_figures": false
+    },
+    "res192": {
+      "bundle": "runs/res192.npz",
+      "original_run_id": "20261007_180148@192",
+      "description": "resolution check N=192, 2% BH, 3000 Myr / 50 saves; PyUL 30.4",
+      "model": "fully coupled",
+      "printed_figures": true
+    },
+    "res256": {
+      "bundle": "runs/res256.npz",
+      "original_run_id": "20260119_062714@256",
+      "description": "resolution check N=256, 2% BH, 30000 Myr / 500 saves (the figure uses 0-3000 Myr); PyUL 30.38; the same simulation as single256_30000 (identical bundle content)",
+      "model": "fully coupled",
+      "printed_figures": true
+    },
+    "binary256": {
+      "bundle": "runs/binary256.npz",
+      "original_run_id": "20251022_031402@256",
+      "description": "unseeded equal-mass binary, two 2% BHs at +-140 pc, N=256 (PyUL 26.32)",
+      "model": "fully coupled",
+      "printed_figures": true
+    },
+    "nobh128": {
+      "bundle": "runs/nobh128.npz",
+      "original_run_id": "20251016_071245@128",
+      "description": "pure soliton (no BH), N=128, 3000 Myr; only its c_nlm is plotted (Fig.5 top row)",
+      "model": "soliton only",
+      "printed_figures": true
+    },
+    "single256_30000": {
+      "bundle": "runs/single256_30000.npz",
+      "original_run_id": "20260119_062714@256",
+      "description": "single BH, 2%, N=256, 30000 Myr / 500 saves; its c_nlm feeds Fig.11; the same simulation as res256",
+      "model": "fully coupled",
+      "printed_figures": true
+    },
+    "recon_nr3_ndnone": {
+      "bundle": "runs/recon_nr3_ndnone.npz",
+      "original_run_id": "20251022_024902@128",
+      "description": "reconstructed background, radial modes to n=3, no dipole; not in the paper (fig07 --panels collection1); supplementary",
+      "model": "reduced (DF A=0.75)",
+      "nr": 3,
+      "nd": null,
+      "printed_figures": false
+    },
+    "recon_nr3_nd0": {
+      "bundle": "runs/recon_nr3_nd0.npz",
+      "original_run_id": "20251022_024634@128",
+      "description": "reconstructed background, n_r=3, n_d=0",
+      "model": "reduced (DF A=0.75)",
+      "nr": 3,
+      "nd": 0,
+      "printed_figures": true
+    },
+    "recon_nr3_nd1": {
+      "bundle": "runs/recon_nr3_nd1.npz",
+      "original_run_id": "20251023_063346@128",
+      "description": "reconstructed background, n_r=3, n_d=1",
+      "model": "reduced (DF A=0.75)",
+      "nr": 3,
+      "nd": 1,
+      "printed_figures": true
+    },
+    "recon_nr3_nd2": {
+      "bundle": "runs/recon_nr3_nd2.npz",
+      "original_run_id": "20251023_063752@128",
+      "description": "reconstructed background, n_r=3, n_d=2",
+      "model": "reduced (DF A=0.75)",
+      "nr": 3,
+      "nd": 2,
+      "printed_figures": true
+    },
+    "recon_nr3_nd3": {
+      "bundle": "runs/recon_nr3_nd3.npz",
+      "original_run_id": "20251021_020819@128",
+      "description": "reconstructed background, n_r=3, n_d=3 (IsoP=false, IC Soliton_plus_ell_1_Init3_deboost); not in the paper (fig07 --panels collection1 compare_n3); supplementary",
+      "model": "reduced (DF A=0.75)",
+      "nr": 3,
+      "nd": 3,
+      "printed_figures": false
+    },
+    "recon_nr0_nd0": {
+      "bundle": "runs/recon_nr0_nd0.npz",
+      "original_run_id": "20251022_025708@128",
+      "description": "reconstructed background, n_r=0, n_d=0",
+      "model": "reduced (DF A=0.75)",
+      "nr": 0,
+      "nd": 0,
+      "printed_figures": true
+    },
+    "recon_nr0_nd1": {
+      "bundle": "runs/recon_nr0_nd1.npz",
+      "original_run_id": "20251023_065203@128",
+      "description": "reconstructed background, n_r=0, n_d=1",
+      "model": "reduced (DF A=0.75)",
+      "nr": 0,
+      "nd": 1,
+      "printed_figures": true
+    },
+    "recon_nr0_nd2": {
+      "bundle": "runs/recon_nr0_nd2.npz",
+      "original_run_id": "20251023_064953@128",
+      "description": "reconstructed background, n_r=0, n_d=2",
+      "model": "reduced (DF A=0.75)",
+      "nr": 0,
+      "nd": 2,
+      "printed_figures": true
+    },
+    "recon_nr0_nd3": {
+      "bundle": "runs/recon_nr0_nd3.npz",
+      "original_run_id": "20251023_064234@128",
+      "description": "reconstructed background, n_r=0, n_d=3",
+      "model": "reduced (DF A=0.75)",
+      "nr": 0,
+      "nd": 3,
+      "printed_figures": true
+    },
+    "byhand_all": {
+      "bundle": "runs/byhand_all.npz",
+      "original_run_id": "20251026_121920@128",
+      "description": "higher-mode test: all n<=2, l<=2 modes at a common amplitude p*",
+      "model": "reduced (DF A=0.75)",
+      "printed_figures": true
+    },
+    "byhand_no_l1": {
+      "bundle": "runs/byhand_no_l1.npz",
+      "original_run_id": "20251029_033519@128",
+      "description": "higher-mode test: as byhand_all with every l=1 mode removed",
+      "model": "reduced (DF A=0.75)",
+      "printed_figures": true
+    },
+    "binary2_reduced_seeded": {
+      "bundle": "runs/binary2_reduced_seeded.npz",
+      "original_run_id": "20251024_221210@128",
+      "description": "seeded-dipole equal-mass binary, reduced model, N=128",
+      "model": "reduced (DF A=0.75)",
+      "printed_figures": true
+    },
+    "binary2_fullsp_seeded": {
+      "bundle": "runs/binary2_fullsp_seeded.npz",
+      "original_run_id": "20251029_030150@128",
+      "description": "seeded-dipole equal-mass binary, fully coupled, N=128",
+      "model": "fully coupled",
+      "printed_figures": true
+    }
+  },
+  "files": {
+    "cnlm_nobh128": {
+      "path": "cnlm/nobh128_c_nlm.h5",
+      "original_name": "c_nlm_mass170.h5",
+      "run": "nobh128",
+      "description": "c_nlm(t), pure soliton N=128, 501 samples 0-3000 Myr",
+      "sha256_prefix": "f649798e0ece42fa"
+    },
+    "cnlm_binary256": {
+      "path": "cnlm/binary256_c_nlm.h5",
+      "original_name": "c_nlm_mass170.h5",
+      "run": "binary256",
+      "description": "c_nlm(t), unseeded equal-mass binary N=256 (computed with its own eigenbasis, sha 55f3b36a)",
+      "sha256_prefix": "3f3b7f04f8e2e8ce"
+    },
+    "cnlm_single256_3000": {
+      "path": "cnlm/single256_3000_c_nlm.h5",
+      "original_name": "c_nlm_mass170.h5",
+      "run": "single256_3000",
+      "description": "c_nlm(t), single 2% BH N=256, 501 samples 0-3000 Myr",
+      "sha256_prefix": "7b5b64fdbaa9daeb"
+    },
+    "cnlm_single256_30000": {
+      "path": "cnlm/single256_30000_c_nlm.h5",
+      "original_name": "c_nlm_mass170.h5",
+      "run": "single256_30000",
+      "description": "c_nlm(t), single 2% BH N=256, 501 samples 0-30000 Myr",
+      "sha256_prefix": "eddafb4fb406d781"
+    },
+    "cnlm_res128": {
+      "path": "cnlm/res128_c_nlm.h5",
+      "original_name": "c_nlm.h5",
+      "run": "res128",
+      "description": "c_nlm(t), N=128 rerun (res128), 501 samples 0-30000 Myr; source of the published Fig. 2 N=128 P_dip curve",
+      "sha256_prefix": "9a2f78510c2ead58"
+    },
+    "cnlm_res128_jan2026": {
+      "path": "cnlm/res128_jan2026_c_nlm.h5",
+      "original_name": "c_nlm.h5",
+      "run": "res128_jan2026",
+      "description": "c_nlm(t), original N=128 run (Jan 2026), 501 samples 0-30000 Myr; supplementary (fig02 --run-128 res128_jan2026)",
+      "sha256_prefix": "0983e024f2ef1fcd"
+    },
+    "cnlm_res192": {
+      "path": "cnlm/res192_c_nlm.h5",
+      "original_name": "c_nlm.h5",
+      "run": "res192",
+      "description": "c_nlm(t), resolution run N=192, 51 samples 0-3000 Myr",
+      "sha256_prefix": "d6b497338417fcba"
+    },
+    "cnlm_res256": {
+      "path": "cnlm/res256_c_nlm.h5",
+      "original_name": "c_nlm.h5",
+      "run": "res256",
+      "description": "c_nlm(t), resolution run N=256, 501 samples 0-30000 Myr; the same run as cnlm_single256_30000, copied from another storage location (identical t and series, different file bytes)",
+      "sha256_prefix": "2032d3a0a6b6e350"
+    },
+    "eigs_basis": {
+      "path": "eigen/eigs_mass_170_Eig_25_lmax_10_nig_5120_py2__2bb42868.h5",
+      "original_name": "eigs_mass_170_Eig_25_lmax_10_nig_5120_py2.h5",
+      "run": "single256_3000",
+      "description": "radial eigenbasis f_nl(r): N_g=5120 endpoint-inclusive grid, lmax=10, 25 n per l, r in code units; shared by all c_nlm files except cnlm_binary256 (sha256 2bb42868...)",
+      "sha256_prefix": "2bb42868972ccb32"
+    },
+    "eigs_basis_binary256": {
+      "path": "eigen/eigs_mass_170_Eig_25_lmax_10_nig_5120_py2__55f3b36a.h5",
+      "original_name": "eigs_mass_170_Eig_25_lmax_10_nig_5120_py2.h5",
+      "run": "binary256",
+      "description": "eigenbasis used for cnlm_binary256 (sha256 55f3b36a...): same eigenfunctions as eigs_basis (max |df| 5e-10 for n<=4, l<=2), eigenvalues shifted by a constant 826.53 code units (potential zero point); not read by any figure script",
+      "sha256_prefix": "55f3b36a"
+    },
+    "derived_fig1_json": {
+      "path": "derived/fig1_256_series_20261008.json",
+      "description": "series behind the published Fig. 1 (radius vs time per mass; validation reference only); PBS node/queue dumps and server paths removed (see the deposit's provenance/DERIVED_FILES.md)"
+    },
+    "derived_resolution_csv": {
+      "path": "derived/resolution_128_192_256.csv",
+      "description": "input of the published Fig. 2 (validation reference; also read by fig02 --source csv)"
+    },
+    "derived_archived_resolution_csv": {
+      "path": "derived/archived_resolution_series.csv",
+      "description": "resolution series of an earlier round (N=128/196/256); not plotted"
+    },
+    "derived_low_order_192_json": {
+      "path": "derived/low_order_192_native.json",
+      "description": "low-order c_nlm series and P_dip of the N=192 run at native resolution (cross-check of Fig. 2b); not plotted"
+    }
+  },
+  "figures": {
+    "fig01": {
+      "script": "fig01_mass_sequence_radius.py",
+      "label": "fig:1",
+      "published": "Sk_Figure/distance_from_origin_vs_time_v7_256.pdf",
+      "basename": "distance_from_origin_vs_time_v7_256",
+      "runs": [
+        "fig1_m1",
+        "fig1_m1p5",
+        "single256_3000",
+        "fig1_m3",
+        "fig1_m4",
+        "fig1_m5"
+      ]
+    },
+    "fig02": {
+      "script": "fig02_resolution_robustness.py",
+      "label": "fig:resolution_robustness",
+      "published": "Sk_Figure/resolution_robustness_round2_192.pdf",
+      "basename": "resolution_robustness_round2_192",
+      "runs": [
+        "res128",
+        "res192",
+        "res256"
+      ],
+      "files": [
+        "cnlm_res128",
+        "cnlm_res192",
+        "cnlm_res256"
+      ]
+    },
+    "fig03": {
+      "script": "fig03_eigenfunction_grid.py",
+      "label": "fig:2",
+      "published": "Sk_Figure/f_nl_grid_3x5.pdf",
+      "basename": "f_nl_grid_3x5",
+      "files": [
+        "eigs_basis"
+      ]
+    },
+    "fig04": {
+      "script": "fig04_equal_mass_binary.py",
+      "label": "fig:3",
+      "published": "Sk_Figure/0.2_Binary_pc_v2.pdf",
+      "basename": "0.2_Binary_pc_v2",
+      "runs": [
+        "binary256"
+      ]
+    },
+    "fig05": {
+      "script": "fig05_cnlm_3x3.py",
+      "label": "fig:4",
+      "published": "Sk_Figure/c_nlm_3x3_n012_v7.pdf",
+      "basename": "c_nlm_3x3_n012_v7",
+      "files": [
+        "cnlm_nobh128",
+        "cnlm_binary256",
+        "cnlm_single256_3000"
+      ]
+    },
+    "fig06": {
+      "script": "fig06_cnlm_single_modes.py",
+      "label": "fig:5 and fig:6",
+      "published": "Sk_Figure/cnlm_n1_l1_mneg1_original_v3.pdf, Sk_Figure/cnlm_n1_l0_m0_original_v3.pdf",
+      "basename": "cnlm_n{n}_l{l}_{mtag}_original_v3",
+      "files": [
+        "cnlm_single256_3000"
+      ]
+    },
+    "fig07": {
+      "script": "fig07_reconstructed_background.py",
+      "label": "fig:8a, fig:8b, fig:8c, fig:8f",
+      "published": "Sk_Figure/stone_skipping_compare_n0_pc_v2.pdf, _n1_, _n2_, stone_skipping_collection2_pc_v2.pdf",
+      "basename": "stone_skipping_{panel}_pc_v2",
+      "runs": [
+        "recon_nr3_nd0",
+        "recon_nr3_nd1",
+        "recon_nr3_nd2",
+        "recon_nr0_nd0",
+        "recon_nr0_nd1",
+        "recon_nr0_nd2",
+        "recon_nr0_nd3"
+      ]
+    },
+    "fig08": {
+      "script": "fig08_dipole_removed.py",
+      "label": "fig:dipole_removed",
+      "published": "Sk_Figure/distance_3d_1x2_pc_v3.pdf",
+      "basename": "distance_3d_1x2_pc_v3",
+      "runs": [
+        "byhand_all",
+        "byhand_no_l1"
+      ]
+    },
+    "fig09": {
+      "script": "fig09_reduced_seeded_binary.py",
+      "label": "fig:equal_mass_reduced_seeded",
+      "published": "Sk_Figure/equal_mass_reduced_seeded_vs_unseeded.pdf",
+      "basename": "equal_mass_reduced_seeded_vs_unseeded",
+      "runs": [
+        "binary256",
+        "binary2_reduced_seeded"
+      ]
+    },
+    "fig10": {
+      "script": "fig10_fullsp_seeded_binary.py",
+      "label": "fig:equal_mass_seeded_fullSP",
+      "published": "Sk_Figure/equal_mass_seeded_vs_unseeded_fullSP.pdf",
+      "basename": "equal_mass_seeded_vs_unseeded_fullSP",
+      "runs": [
+        "binary256",
+        "binary2_fullsp_seeded"
+      ]
+    },
+    "fig11": {
+      "script": "fig11_cnlm_time_spectrum.py",
+      "label": "fig:14",
+      "published": "Sk_Figure/cnlm_time_spectrum_n1_ell1_m-1_v3.pdf",
+      "basename": "cnlm_time_spectrum_n1_ell1_m-1_v3",
+      "files": [
+        "cnlm_single256_30000"
+      ]
+    },
+    "fig12": {
+      "script": "fig12_resonance_roots.py",
+      "label": "fig:16",
+      "published": "Sk_Figure/f_x.pdf",
+      "basename": "f_x"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+#!/bin/bash
+# PBS template: one PyUL run -> a_lm checkpoints -> c_nlm.h5 with the one-pass pipeline.
+# Submit with:  qsub run_cnlm_pipeline.pbs     (edit the block below first)
+# Re-submitting the same job resumes from Outputs/cnlm_pipeline/alm_checkpoints/;
+# finished outputs are never overwritten unless you add --force.
+#PBS -N uldm_cnlm
+#PBS -l select=1:ncpus=16:mem=32gb
+#PBS -l walltime=24:00:00
+#PBS -j oe
+# PBS writes uldm_cnlm.o<jobid> into the submission directory (unique per job); the
+# pipeline log below is also unique per job.
+
+set -euo pipefail
+
+# ---------------- edit these ----------------
+RUN_DIR="/path/to/save_path/YYYYMMDD_HHMMSS@256"   # PyUL run directory (contains config.uldm)
+PYTHON="python3"                                    # interpreter of the environment with Eig_ULDM_packages
+# Extra pipeline options. For PyUL <= 30.40 runs the resampled box must be given, e.g.
+#   --rs-side 5.0 --rs-resol 256   (kpc; with CellCenteredGrid=True 30.38-30.40 used (L - L/N)*Length_Ratio)
+PIPELINE_ARGS=(--build-eigen)
+# Optional environment activation (left disabled; set -u is relaxed while it runs)
+ACTIVATE=""                                         # e.g. "source /path/to/venv/bin/activate"
+# --------------------------------------------
+
+cd "${PBS_O_WORKDIR:-$PWD}"
+if [ -n "${ACTIVATE}" ]; then
+    set +u
+    eval "${ACTIVATE}"
+    set -u
+fi
+
+# One process, ULDM_NUM_WORKERS threads; keep BLAS/OpenMP single-threaded to avoid oversubscription.
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export ULDM_NUM_WORKERS="${NCPUS:-${PBS_NCPUS:-1}}"
+export PYTHONUNBUFFERED=1
+
+LOG="cnlm_pipeline_${PBS_JOBID:-nojob}_$(date +%Y%m%d_%H%M%S).log"
+echo "node: $(hostname)  job: ${PBS_JOBID:-none}  workers: ${ULDM_NUM_WORKERS}  run: ${RUN_DIR}" | tee "${LOG}"
+"${PYTHON}" -u -m Eig_ULDM_packages.pipeline "${RUN_DIR}" "${PIPELINE_ARGS[@]}" 2>&1 | tee -a "${LOG}"
+echo "finished: $(date -Is)" | tee -a "${LOG}"
