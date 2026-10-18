@@ -87,8 +87,10 @@ already differed by about 1e-16 relative before this release (see WP2-19).
   `verify_length_conversion`; `legacy_time_axis=True` reproduces the old notebooks' `k*duration/(save_number+1)`
   axis. Command line: `python -m Eig_ULDM_packages.trajectories info|export`. Run reading, units and the
   axion-mass policy come from `pyul_run.py` (WP3-05).
-- **R9-15 (new): `paper_figures/`**: one script per printed figure of the Stone Skipping paper
-  (`fig01_*.py` ... `fig12_*.py`), the shared helpers `_common.py` and `_seeded_binary.py`,
+- **R9-15 (new): `paper_figures/`**: scripts for all 13 printed figures of the Stone Skipping paper
+  (arXiv:2602.11512), named after the printed figure numbers (`fig01_*.py` ... `fig13_*.py`; one script,
+  `fig06_fig07_cnlm_single_modes.py`, makes Figs. 6 and 7; see R10-01), the shared helpers `_common.py` and
+  `_seeded_binary.py`,
   `make_all_figures.py` (all figures, one process each), `export_bundles.py` (raw run directories to
   trajectory bundles), `figures_config.json` (layout of the data deposit), `figures_config.raw_example.json`
   (raw run directories) and `README.md` (conventions, data layout, validation against the published figures).
@@ -307,6 +309,36 @@ the pipeline and the inline recorder give the same values as before for every co
   (`20260119_062714@256`). The README says that the three c_nlm routes agree for the same kernel parameters
   (the default shell counts agree for 256^3 cubes), and that the automatically built eigen file matches the
   paper's in its datasets, not in its file hash (0.3.0 adds provenance attributes).
+
+### Release preparation (R10, 2026-10-18)
+
+Documentation, metadata and file names only; no numerical behaviour changed.
+
+- **R10-01 (A): figure scripts use the printed figure numbers.** The compiled paper has 13 figures; the two
+  single-mode panels are separate printed Figs. 6 and 7, so the earlier numbering of the scripts (and of
+  every document that followed it) was off by one from Fig. 7 on. Renamed: `fig06_cnlm_single_modes.py` ->
+  `fig06_fig07_cnlm_single_modes.py`, `fig07_reconstructed_background.py` -> `fig08_reconstructed_background.py`,
+  `fig08_dipole_removed.py` -> `fig09_higher_mode_test.py`, `fig09_reduced_seeded_binary.py` ->
+  `fig10_reduced_seeded_binary.py`, `fig10_fullsp_seeded_binary.py` -> `fig11_fullsp_seeded_binary.py`,
+  `fig11_cnlm_time_spectrum.py` -> `fig12_cnlm_time_spectrum.py`, `fig12_resonance_roots.py` ->
+  `fig13_resonance_roots.py`. The `figures_config*.json` keys follow (`fig06_fig07`, `fig08` ... `fig13`;
+  `make_all_figures.py --only` takes the new keys) and gain `printed_figure`, which each
+  `<basename>.provenance.json` now records. Output file names (the published names) are unchanged. All
+  documentation uses printed figure numbers; LaTeX labels are quoted only as labels.
+- **R10-02 (A): `docs/conventions_and_errata.md`.** The conventions and known issues behind the published
+  figures, quantified, with the printed figures they concern: legacy angular grid (E1), eigen wall at
+  r_max + h (E2), rounded `mass0` (E3), the PyUL 30.38/30.40 resampled-box radius error in the c_nlm of
+  Figs. 2 and 12 (E4: P_dip -0.6 % to -2.4 %, |c_000|^2/M -1.2 % to -2.4 % when corrected; frequencies
+  unaffected), the legacy time axis of Figs. 4, 8, 9 and of the sources of Figs. 10, 11 (E5), and the dense
+  nearest-savgol series of Figs. 5 and 12 (E6). Linked from the README; the affected c_nlm entries of
+  `figures_config*.json` point to it.
+- **R10-03 (A): `NOTICE`.** Origin and credits of the parts derived from PyUltraLight / PyUltraLight 2
+  (`units`, the constants of `pyul_run`), of the bundled soliton profile (PyUltraLight's `initial_f.npy`, bit
+  for bit) and of the eigenmode method. `LICENSE` is unchanged; `NOTICE` is added to `license-files` and
+  the sdist.
+- **R10-04 (A): citation metadata.** The paper is cited as arXiv:2602.11512 (README, `.zenodo.json`,
+  `pyproject.toml` URLs). `.zenodo.json` is complete for the Zenodo GitHub integration (creator with ORCID
+  and affiliations, MIT, keywords, related identifiers); it no longer contains placeholders.
 
 ## [0.2.0]
 

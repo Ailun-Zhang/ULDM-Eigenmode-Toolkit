@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 12 (fig:16): rescaled stationary roots mu_pm / kappa^2 of Eq. (C85) versus x = Gamma / kappa.
+"""Fig. 13 (tex label fig:16): rescaled stationary roots mu_pm / kappa^2 of Eq. (B77) versus x = Gamma / kappa.
 
     mu_pm / kappa^2 = [2 - 4 x^2 +- sqrt(1 - 16 x^2 + 16 x^4)] / 3
 
@@ -62,7 +62,7 @@ def plot(args):
 
 
 def main(argv=None):
-    parser = _common.make_parser("fig12", __doc__.splitlines()[1])
+    parser = _common.make_parser("fig13", __doc__.splitlines()[1])
     parser.add_argument("--xlim", type=float, nargs=2, default=(0.0, 3.0))
     parser.add_argument("--ylim", type=float, nargs=2, default=(-2.0, 1.6))
     parser.add_argument("--n-points", type=int, default=6001)
@@ -70,7 +70,8 @@ def main(argv=None):
     ctx = _common.Context.from_args(args, needs_data=False)
     fig, x, f_plus, f_minus = plot(args)
     paths = ctx.save(fig, {})
-    ctx.write_provenance({"equation": "C85", "x_low": float(X_LOW), "x_high": float(X_HIGH),
+    ctx.write_provenance({"equation": "B77", "equation_label": "eq:C85",  # printed number, LaTeX label
+                          "x_low": float(X_LOW), "x_high": float(X_HIGH),
                           "checks": {"x0": [float(f_plus[0]), float(f_minus[0])]}})
     for p in paths:
         print(p)

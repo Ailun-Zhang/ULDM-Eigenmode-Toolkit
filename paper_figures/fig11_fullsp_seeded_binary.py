@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 10 (fig:equal_mass_seeded_fullSP): fully coupled seeded-dipole equal-mass binary vs the unseeded binary.
+"""Fig. 11 (tex label fig:equal_mass_seeded_fullSP): fully coupled seeded-dipole equal-mass binary vs the unseeded binary.
 
 Source runs: binary2_fullsp_seeded (run ID 20251029_030150@128, n=1 l=1 seeded, N=128, fully coupled, no
 empirical drag) and binary256 (unseeded, fully coupled, N=256).
@@ -15,7 +15,7 @@ import _seeded_binary
 
 
 def main(argv=None):
-    return _seeded_binary.run_figure("fig10", "binary2_fullsp_seeded", 1, 0, __doc__, argv)
+    return _seeded_binary.run_figure("fig11", "binary2_fullsp_seeded", 1, 0, __doc__, argv)
 
 
 if __name__ == "__main__":

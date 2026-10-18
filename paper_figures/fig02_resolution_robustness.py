@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 2 (fig:resolution_robustness): (a) orbital radius r_sys and (b) dipole occupation P_{l=1}^{(n<=2)} for N=128/192/256.
+"""Fig. 2 (tex label fig:resolution_robustness): (a) orbital radius r_sys and (b) dipole occupation P_{l=1}^{(n<=2)} for N=128/192/256.
 
 Source runs: res128 (the N=128 rerun, run ID 20260920_131633@128, 30000 Myr / 500 saves), res192 (3000 Myr /
 50 saves), res256 (30000 Myr / 500 saves); all saved every 60 Myr.  Window 0-3000 Myr (51 samples per run).

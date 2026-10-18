@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 11 (fig:14): c_{1,1,-1}(t) in the time domain (|c|, Re, Im) and its FFT spectrum with the two peaks.
+"""Fig. 12 (tex label fig:14): c_{1,1,-1}(t) in the time domain (|c|, Re, Im) and its FFT spectrum with the two peaks.
 
 Source: cnlm_single256_30000 (c_nlm_mass170.h5 of the single-BH run 20260119_062714@256),
 a 30000 Myr / 500-save N=256 single-BH run.  Normalisation c / sqrt(M_code), M_code = 12e6 Msun in code units.
@@ -59,7 +59,7 @@ def compute(ctx, args):
 
 
 def main(argv=None):
-    parser = _common.make_parser("fig11", __doc__.splitlines()[1])
+    parser = _common.make_parser("fig12", __doc__.splitlines()[1])
     parser.add_argument("--mode", type=int, nargs=3, default=[1, 1, -1], metavar=("N", "L", "M"))
     parser.add_argument("--time-sampling", choices=("dense", "original"), default="dense",
                         help="dense = 60001-point nearest-savgol resampling (published); original = 501 saved samples")

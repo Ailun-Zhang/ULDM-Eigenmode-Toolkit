@@ -1,6 +1,6 @@
-"""Shared code of Figs. 9 and 10: seeded-dipole equal-mass binary vs the unseeded fully coupled binary.
+"""Shared code of Figs. 10 and 11: seeded-dipole equal-mass binary vs the unseeded fully coupled binary.
 
-The published Figs. 9 and 10 were drawn from curves digitised (PyMuPDF ``get_drawings``) out of earlier
+The published Figs. 10 and 11 were drawn from curves digitised (PyMuPDF ``get_drawings``) out of earlier
 figure PDFs; the digitiser scripts survive only in an archived working-session log (2026-06-24, not
 deposited).  The scripts here
 read the raw trajectories instead, with the observable those source PDFs plotted:

@@ -3,7 +3,8 @@
 A Python library for computing the eigenfunctions $f_{nl}(r)$ of a soliton potential and the spectral
 coefficients $c_{nlm}(t)$ of ultralight dark matter (ULDM) wavefunctions from
 [PyUL_SK](https://github.com/Ailun-Zhang/PyUL_SK) simulations. It is the analysis code of *Stone Skipping
-Black Holes in Ultralight Dark Matter Solitons* (A. Zhang, Y. Wang, J. L. Zagorac and R. Easther).
+Black Holes in Ultralight Dark Matter Solitons* (A. Zhang, Y. Wang, J. L. Zagorac and R. Easther,
+[arXiv:2602.11512](https://arxiv.org/abs/2602.11512)).
 
 The wavefunction around its centre of mass is expanded in the eigenmodes of the soliton potential:
 
@@ -19,7 +20,9 @@ orthonormal complex spherical harmonics $Y_l^m$, and time-dependent coefficients
 4. time- and frequency-domain analysis and figures (`cnlm_spectral_analysis`, `paper_figures/`).
 
 Version **0.3.0** (October 2026). Default options reproduce the published numbers; see
-[CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](CHANGELOG.md). The conventions of the published analysis and the known issues of the code
+versions behind the paper's figures (with their size and the printed figures they concern) are in
+[docs/conventions_and_errata.md](docs/conventions_and_errata.md).
 
 ## Contents
 
@@ -174,7 +177,9 @@ boundary, and is named `eigs_mass_<mass><units>_Eig_25_lmax_10_nig_5120.h5`.
 give `--rs-side <side> --rs-resol <N>` (or `--rs-dx`) in the run's length units. With `CellCenteredGrid=True`,
 PyUL 30.38 - 30.40 resampled onto a side of `(L - L/N) * Length_Ratio`, not `L * Length_Ratio`; the
 historical scripts assumed `L * Length_Ratio`, a 1/N radial mislabel (0.78 / 0.52 / 0.39 % at
-N = 128 / 192 / 256).
+N = 128 / 192 / 256). This concerns the c_nlm of printed Figs. 2 and 12 of the paper (P_dip 0.6 - 2.4 % and
+|c_000|^2/M 1.2 - 2.4 % too high; frequencies unaffected); see
+[errata E4](docs/conventions_and_errata.md#e4-pyul-3038--3040-resampled-box-a_lm-radii-of-fig-2-and-fig-12).
 
 **Outputs** go to `<run>/Outputs/cnlm_pipeline/` (`--out-dir`): `c_nlm.h5`, the optional a_lm file
 (`--alm-out`, relative names are inside the output folder), `alm_checkpoints/ALM_#NNN.npz`,
@@ -301,7 +306,7 @@ t_file, c_file, attrs = load_cnlm_from_h5(f"{out}/c_nlm.h5")
 print(A["time_source"], len(t), max(np.max(np.abs(c[k] - c_file[k])) for k in c))
 ```
 
-Spectral analysis of one mode (as Fig. 11 of the paper):
+Spectral analysis of one mode (as printed Fig. 12 of the paper):
 
 ```python
 from pathlib import Path
@@ -403,15 +408,16 @@ complex Y_lm with the Condon-Shortley phase, `a_lm(r) = int psi Y_lm^* dOmega`.
 ## Conventions and switches
 
 Default options reproduce the published numbers. Options that change numbers are opt-in (policy B in the
-changelog).
+changelog). [docs/conventions_and_errata.md](docs/conventions_and_errata.md) quantifies each legacy convention
+and lists the printed figures it concerns.
 
 | Switch | Default (paper) | Alternative | Effect |
 |---|---|---|---|
 | angular grid: `angular_grid` (`compute_alm_cube`, `AlmKernel`, `functions3.process_file`, `compute_sh_coeffs`), `--angular-grid`, `CnlmAngularGrid` | `'legacy'`: `theta = linspace(0, pi, N)`, `phi = linspace(0, 2 pi, 2N)` (both endpoints; not the Driscoll-Healy grid) | `'dh'`: `theta_i = pi i / N`, `phi_j = pi j / N` | At N = 300 the legacy grid gives Y00 exactly; for l >= 1 amplitude errors of 0.1 - 0.4 %, a phase offset `m pi / (2N - 1)` (0.005 rad at m = 1, 0.052 rad at m = 10) and 0.3 - 4 % leakage into other (l', m'). `'dh'` is exact to 1e-15. |
 | eigen-solver outer boundary: `outer_boundary` (`solve_h`, `make_all_eigs`), `--eigen-outer-boundary`, `CnlmEigenParams` | `'legacy'`: the last grid point is an unknown, so the Dirichlet wall is effectively at `r_max + h` | `'rmax'`: `u(r_max) = 0` exactly | `'rmax'` converges at second order to the fixed-domain spectrum. |
 | soliton `mass0`: `load_soliton_file(path, mass0=None)`, `--soliton-mass0` | the bundled `soliton.h5` value 3.883 (rounded) | 3.8827652755822006 (exact) | The rounded value makes the scaled soliton about 6e-5 too light; PyUL's standard solitons use the exact value. |
-| time axis | PyUL save times `start + k * duration / save_number` (Myr); `load_a_lm(time_source='auto')` uses a file's `times` attribute, else `linspace(0, final_time, n)` | `times=`, `snapshot_indices=` + `save_interval=`, `time_source='legacy'`/`'file'` | Historical a_lm files always start at t = 0 for their first group. Some old analysis notebooks used `k * duration / (save_number + 1)` for trajectories (`trajectories.load_run(legacy_time_axis=True)` reproduces it). |
-| `resample_cnlm_time(method=...)` | `'pchip'` | `'nearest'` (pure nearest-neighbour since 0.3.0), `'nearest-savgol'` (the paper's dense display files) | display only |
+| time axis | PyUL save times `start + k * duration / save_number` (Myr); `load_a_lm(time_source='auto')` uses a file's `times` attribute, else `linspace(0, final_time, n)` | `times=`, `snapshot_indices=` + `save_interval=`, `time_source='legacy'`/`'file'` | Historical a_lm files always start at t = 0 for their first group. Some old analysis notebooks used `k * duration / (save_number + 1)` for trajectories (printed Figs. 4, 8, 9 and the digitised sources of Figs. 10, 11; `trajectories.load_run(legacy_time_axis=True)` reproduces it). |
+| `resample_cnlm_time(method=...)` | `'pchip'` | `'nearest'` (pure nearest-neighbour since 0.3.0), `'nearest-savgol'` (the paper's dense display files of printed Figs. 5 and 12) | display only |
 | `functions3.process_file(raise_on_error=True)` | re-raise after logging | `False`: old print-and-continue | |
 | `create_sh_hdf5(allow_missing=False)` | missing JSON is an error | `True`: zero-fill and record `missing_*` attributes | |
 | `compute_potential_from_grid(cell_centered=True)` | cell-centred grid | `False` for PyUL's node grid | warns when it infers `dx = 2 r_max / N` |
@@ -453,8 +459,9 @@ Other behaviour changes in 0.3.0 users may notice: `from functions3 import *` no
 
 ## Paper figures and data
 
-[`paper_figures/`](paper_figures/README.md) contains one script per printed figure of the paper (Figs. 1 -
-12) and `make_all_figures.py`. They regenerate the figures from the small data products (per-save
+[`paper_figures/`](paper_figures/README.md) regenerates all 13 printed figures of the paper with 12 scripts
+named after the printed figure numbers (`fig01_*.py` ... `fig13_*.py`; `fig06_fig07_cnlm_single_modes.py`
+makes the two single-mode figures 6 and 7) and `make_all_figures.py`. They use the small data products (per-save
 black-hole trajectories or single-file trajectory bundles, the `c_nlm` files and the eigenbasis); the 3-D
 wavefunctions are not needed. Every script writes a `<basename>.provenance.json` with the input files and
 their SHA-256, PyUL versions, axion masses and time-axis conventions. See
@@ -463,13 +470,16 @@ validation against the published figures.
 
 ```bash
 python paper_figures/make_all_figures.py --help
-python paper_figures/make_all_figures.py --data-root path/to/StoneSkipping_PRD_data --out-dir figures_out
+python paper_figures/make_all_figures.py --data-root path/to/StoneSkipping_PRD_data_v1 --out-dir figures_out
 ```
 
 Relative `--data-root`, `--out-dir` and `--config` paths are relative to the current working directory.
 
-The data deposit is TODO: Zenodo DOI (data). It holds the trajectory bundles, c_nlm and eigenbasis files and
-the provenance tables of the runs; the 3-D wavefunction outputs are not deposited (see the deposit's README).
+The data deposit *Data for "Stone Skipping Black Holes in Ultralight Dark Matter Solitons"* (version 1,
+Zenodo, CC BY 4.0) holds the trajectory bundles, c_nlm and eigenbasis files and the provenance tables of the
+runs, plus a copy of `paper_figures/`; its README starts with a step-by-step guide to reproduce the figures
+and the simulations in your own environment. The 3-D wavefunction outputs are not deposited; they are
+available from the corresponding author on reasonable request.
 
 ---
 
@@ -559,12 +569,15 @@ data the data checks are skipped.
 If you use this toolkit, please cite the paper and the software release:
 
 ```bibtex
-@article{zhang2026stoneskipping,
-  author  = {Zhang, Alan and Wang, Yourong and Zagorac, J. Luna and Easther, Richard},
-  title   = {Stone Skipping Black Holes in Ultralight Dark Matter Solitons},
-  journal = {Phys. Rev. D},
-  note    = {TODO: volume, article number and DOI; preprint arXiv:2602.11512},
-  year    = {2026}
+@misc{zhang2026stoneskipping,
+  author        = {Zhang, Alan and Wang, Yourong and Zagorac, J. Luna and Easther, Richard},
+  title         = {Stone Skipping Black Holes in Ultralight Dark Matter Solitons},
+  year          = {2026},
+  eprint        = {2602.11512},
+  archivePrefix = {arXiv},
+  primaryClass  = {astro-ph.CO},
+  doi           = {10.48550/arXiv.2602.11512},
+  url           = {https://arxiv.org/abs/2602.11512}
 }
 
 @software{uldm_eigenmode_toolkit,
@@ -572,10 +585,12 @@ If you use this toolkit, please cite the paper and the software release:
   title   = {ULDM Eigenmode Toolkit},
   version = {0.3.0},
   year    = {2026},
-  doi     = {TODO: Zenodo DOI of the v0.3.0 release},
   url     = {https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit}
 }
 ```
+
+Each GitHub release of this repository is archived on Zenodo, which mints a DOI for it; please add the DOI
+of the release you used (shown on its Zenodo record) to the software entry.
 
 The eigenmode decomposition builds on
 
@@ -604,5 +619,10 @@ were inspired by Mathematica code generously provided by [J. Luna Zagorac](https
 The theoretical foundation of the eigenmode decomposition is Zagorac, Sands, Padmanabhan & Easther, Phys. Rev.
 D 105, 103506 (2022).
 
-Licensed under the MIT licence; see [LICENSE](LICENSE). All changes are listed in [CHANGELOG.md](CHANGELOG.md).
+The unit conversions (`units`, `pyul_run`) are adapted from PyUltraLight / PyUltraLight 2, and the bundled
+soliton profile is PyUltraLight's standard profile; [NOTICE](NOTICE) records the origin of these parts and
+credits their authors.
+
+Licensed under the MIT licence; see [LICENSE](LICENSE) and [NOTICE](NOTICE). All changes are listed in
+[CHANGELOG.md](CHANGELOG.md).
 Issues and pull requests are welcome on GitHub.

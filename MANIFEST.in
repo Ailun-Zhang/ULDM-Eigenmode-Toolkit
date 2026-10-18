@@ -4,6 +4,7 @@ graft paper_figures
 graft examples
 include compute_coeff.py submit_all_jobs_example.sh
 include Main.ipynb compute_c_nlm.ipynb f_nl_python.ipynb
-include CHANGELOG.md README.md LICENSE .zenodo.json .gitattributes
+include CHANGELOG.md README.md LICENSE NOTICE .zenodo.json .gitattributes
+graft docs
 global-exclude *.py[cod]
 global-exclude __pycache__

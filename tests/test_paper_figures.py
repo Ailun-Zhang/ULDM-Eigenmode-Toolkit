@@ -40,13 +40,24 @@ def test_config_paths_are_relative_and_complete():
                 assert not os.path.isabs(rel) and ":" not in rel and not rel.startswith(("/", "\\")), (key, rel)
                 assert ".." not in Path(rel).parts, (key, rel)
     keys = sorted(CONFIG["figures"])
-    assert keys == ["fig%02d" % i for i in range(1, 13)]
+    # one key per script, named after the printed figure numbers of the paper (13 figures, 12 scripts)
+    assert keys == ["fig01", "fig02", "fig03", "fig04", "fig05", "fig06_fig07"] + ["fig%02d" % i for i in range(8, 14)]
+    printed = []
     for key, fig in CONFIG["figures"].items():
         assert (FIGDIR / fig["script"]).is_file(), fig["script"]
+        assert fig["script"].startswith(key + "_"), (key, fig["script"])
+        printed += [int(n) for n in key[3:].split("_fig")]
+        assert fig["printed_figure"] == ("Figs. 6 and 7" if key == "fig06_fig07" else "Fig. %d" % int(key[3:]))
         for run in fig.get("runs", []):
             assert run in CONFIG["runs"], (key, run)
         for f in fig.get("files", []):
             assert f in CONFIG["files"], (key, f)
+    assert printed == list(range(1, 14))
+
+
+def test_raw_example_config_has_the_same_figures():
+    raw = json.loads((FIGDIR / "figures_config.raw_example.json").read_text(encoding="utf-8"))
+    assert raw["figures"] == CONFIG["figures"]
 
 
 @pytest.mark.parametrize("key", sorted(CONFIG["figures"]))
@@ -58,16 +69,16 @@ def test_scripts_have_common_cli(key):
         assert opt in out.stdout, (key, opt)
 
 
-def test_fig12_analytic(tmp_path):
-    import fig12_resonance_roots as F12
+def test_fig13_analytic(tmp_path):
+    import fig13_resonance_roots as F13
 
-    fp, fm = F12.roots(np.array([0.0, F12.X_LOW, F12.X_HIGH, 0.5, 2.0]))
+    fp, fm = F13.roots(np.array([0.0, F13.X_LOW, F13.X_HIGH, 0.5, 2.0]))
     assert fp[0] == pytest.approx(1.0) and fm[0] == pytest.approx(1.0 / 3.0)
     assert fp[1] == pytest.approx(fm[1]) and fp[2] == pytest.approx(fm[2])  # roots coalesce at the thresholds
     assert np.isnan(fp[3]) and np.isnan(fm[3])  # complex between the thresholds
     assert fp[4] < 0 and fm[4] < 0  # large-damping branch: non-positive roots
-    assert F12.X_LOW == pytest.approx(0.258819, abs=1e-6) and F12.X_HIGH == pytest.approx(0.965926, abs=1e-6)
-    F12.main(["--out-dir", str(tmp_path), "--formats", "pdf,png"])
+    assert F13.X_LOW == pytest.approx(0.258819, abs=1e-6) and F13.X_HIGH == pytest.approx(0.965926, abs=1e-6)
+    F13.main(["--out-dir", str(tmp_path), "--formats", "pdf,png"])
     assert (tmp_path / "f_x.pdf").is_file() and (tmp_path / "f_x.png").is_file()
 
 
@@ -98,11 +109,11 @@ def test_fig02_raw_matches_published_csv_for_192_and_256():
 
 
 @needs_data
-def test_fig11_peaks_match_manuscript():
-    import fig11_cnlm_time_spectrum as F11
+def test_fig12_peaks_match_manuscript():
+    import fig12_cnlm_time_spectrum as F12
     import _common
 
-    p = _common.make_parser("fig11", "x")
+    p = _common.make_parser("fig12", "x")
     p.add_argument("--mode", type=int, nargs=3, default=[1, 1, -1])
     p.add_argument("--time-sampling", default="dense")
     p.add_argument("--n-dense", type=int, default=60001)
@@ -110,7 +121,7 @@ def test_fig11_peaks_match_manuscript():
     p.add_argument("--analysis-mode", default="complex")
     p.add_argument("--peak-rel-threshold", type=float, default=0.01)
     args = p.parse_args(["--data-root", str(DATA_ROOT), "--no-provenance"])
-    result, _ = F11.compute(_ctx("fig11"), args)
+    result, _ = F12.compute(_ctx("fig12"), args)
     f2, f1 = sorted(f for f, _ in result.strong_peaks_2)
     assert f1 == pytest.approx(0.000999983, abs=5e-10)
     assert f2 == pytest.approx(-0.000233329, abs=5e-10)
@@ -118,9 +129,9 @@ def test_fig11_peaks_match_manuscript():
 
 @needs_data
 def test_legacy_axis_figures_end_at_2994(tmp_path):
-    import fig07_reconstructed_background as F7
+    import fig08_reconstructed_background as F8
 
-    series = F7.compute(_ctx("fig07"), "compare_n0", True)
+    series = F8.compute(_ctx("fig08"), "compare_n0", True)
     for _, d in series:
         assert d["time_Myr"][-1] == pytest.approx(500 * 3000 / 501)
 
@@ -133,7 +144,7 @@ def test_make_all_figures_relative_out_dir_from_other_cwd(tmp_path):
     (work / "cfg" / "figures_config.json").write_text((FIGDIR / "figures_config.json").read_text(encoding="utf-8"),
                                                       encoding="utf-8")
     out = subprocess.run([sys.executable, "-B", str(FIGDIR / "make_all_figures.py"), "--config",
-                          os.path.join("cfg", "figures_config.json"), "--out-dir", "figs", "--only", "fig12",
+                          os.path.join("cfg", "figures_config.json"), "--out-dir", "figs", "--only", "fig13",
                           "--formats", "png"], capture_output=True, text=True, cwd=str(work))
     assert out.returncode == 0, out.stdout + out.stderr
     assert (work / "figs" / "f_x.png").is_file()

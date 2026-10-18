@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 5 (fig:4): 3 x 3 panel of |c_{n l m}(t)|^2 / M_code, columns n = 0, 1, 2, all l <= 2 and m.
+"""Fig. 5 (tex label fig:4): 3 x 3 panel of |c_{n l m}(t)|^2 / M_code, columns n = 0, 1, 2, all l <= 2 and m.
 
 Rows (original notebook compute_c_nlm_updated.ipynb, cell 15, kept with the nobh128 run 20251016_071245@128):
   1. "No Black Hole (BH)"            cnlm_nobh128        (N=128!)

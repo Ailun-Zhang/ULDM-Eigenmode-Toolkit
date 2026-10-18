@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 3 (fig:2): radial eigenfunctions f_{n,l}(r) for n = 0..4 (columns) and l = 0, 1, 2 (rows).
+"""Fig. 3 (tex label fig:2): radial eigenfunctions f_{n,l}(r) for n = 0..4 (columns) and l = 0, 1, 2 (rows).
 
 Source: the eigenbasis file eigs_mass_170_Eig_25_lmax_10_nig_5120_py2.h5 (config key eigs_basis,
 sha256 2bb42868...), i.e. the basis used for every c_nlm file except the binary run.  r is in PyUL code

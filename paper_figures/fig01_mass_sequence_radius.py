@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 1 (fig:1): orbital radius |x_BH| vs time for single BHs of 1, 1.5, 2, 3, 4, 5 % of the soliton mass.
+"""Fig. 1 (tex label fig:1): orbital radius |x_BH| vs time for single BHs of 1, 1.5, 2, 3, 4, 5 % of the soliton mass.
 
 Source runs: fig1_m1, fig1_m1p5, single256_3000 (2 %), fig1_m3, fig1_m4, fig1_m5 (N=256, 5 kpc box).
 Observable: distance of the BH from the simulation origin (= initial total centre of mass), in pc;

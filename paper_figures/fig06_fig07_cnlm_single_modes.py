@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 6 (fig:5, fig:6): |c_{1,1,-1}(t)|^2 and |c_{1,0,0}(t)|^2 / M_code for the single 2 % BH run (N=256).
+"""Figs. 6 and 7 (tex labels fig:5, fig:6): |c_{1,1,-1}(t)|^2 (Fig. 6) and |c_{1,0,0}(t)|^2 (Fig. 7) / M_code, single 2 % BH, N=256.
 
 Source: cnlm_single256_3000 (c_nlm_mass170.h5 of the single-BH run 20251016_185657@256),
 the 501 saved samples (no resampling), 0-3000 Myr.  Normalisation |c|^2 / M_code, M_code = 12e6 Msun in
@@ -50,7 +50,7 @@ def capture_show(callback):
 
 
 def main(argv=None):
-    parser = _common.make_parser("fig06", __doc__.splitlines()[1])
+    parser = _common.make_parser("fig06_fig07", __doc__.splitlines()[1])
     parser.add_argument("--modes", nargs="+", default=DEFAULT_MODES, help="n,l,m:colour entries")
     parser.add_argument("--xlim", type=float, nargs=2, default=(0.0, 3000.0))
     parser.add_argument("--figsize", type=float, nargs=2, default=(3.5, 2.6))

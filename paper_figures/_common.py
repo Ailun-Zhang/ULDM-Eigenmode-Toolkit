@@ -232,6 +232,7 @@ class Context:
         stem = basename or self.basename
         rec = {
             "figure": self.fig_key,
+            "printed_figure": self.fig_cfg.get("printed_figure"),
             "label": self.fig_cfg.get("label"),
             "published": self.fig_cfg.get("published"),
             "script": self.fig_cfg.get("script"),

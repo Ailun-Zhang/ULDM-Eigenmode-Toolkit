@@ -163,3 +163,38 @@ def test_shell_templates(path):
     else:
         assert "host=" not in text                         # templates never pin hosts
         assert "%j" in text or "PBS_JOBID" in text         # unique logs
+
+
+def _orcid_ok(orcid):
+    digits = orcid.replace("-", "")
+    total = 0
+    for ch in digits[:-1]:
+        total = (total + int(ch)) * 2
+    check = (12 - total % 11) % 11
+    return re.fullmatch(r"\d{4}-\d{4}-\d{4}-\d{3}[\dX]", orcid) and digits[-1] == ("X" if check == 10 else str(check))
+
+
+def test_release_metadata():
+    """R10: .zenodo.json is complete for the Zenodo GitHub integration; NOTICE, errata page and links exist."""
+    raw = (REPO / ".zenodo.json").read_text(encoding="utf-8")
+    assert "TODO" not in raw
+    meta = json.loads(raw)
+    assert meta["upload_type"] == "software" and meta["license"].lower() == "mit"  # Zenodo vocabulary id
+    import Eig_ULDM_packages
+    assert meta["version"] == Eig_ULDM_packages.__version__
+    for creator in meta["creators"]:
+        assert creator["name"] and creator["affiliation"] and _orcid_ok(creator["orcid"]), creator
+    rel = {(r["identifier"], r["relation"]) for r in meta["related_identifiers"]}
+    assert ("arXiv:2602.11512", "isSupplementTo") in rel
+    assert ("https://github.com/Ailun-Zhang/PyUL_SK", "isSupplementTo") in rel
+    for r in meta["related_identifiers"]:
+        assert r["scheme"] in ("doi", "url", "arxiv"), r
+    readme = (REPO / "README.md").read_text(encoding="utf-8")
+    assert "TODO" not in readme and "arXiv:2602.11512" in readme
+    for target in ("docs/conventions_and_errata.md", "NOTICE", "LICENSE", "CHANGELOG.md"):
+        assert f"({target}" in readme and (REPO / target).is_file(), target
+    assert "PyUltraLight" in (REPO / "NOTICE").read_text(encoding="utf-8")
+    assert (REPO / "LICENSE").read_text(encoding="utf-8").startswith("MIT License")
+    assert '"NOTICE"' in (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    manifest = (REPO / "MANIFEST.in").read_text(encoding="utf-8")
+    assert "NOTICE" in manifest and "graft docs" in manifest

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 8 (fig:dipole_removed): BH distance from the ULDM centre of mass, (a) all n<=2, l<=2 modes at a
+"""Fig. 9 (tex label fig:dipole_removed): BH distance from the ULDM centre of mass, (a) all n<=2, l<=2 modes at a
 common amplitude, (b) the same with every l=1 mode removed (reduced model, N=128, DF A=0.75).
 
 Source runs: byhand_all (run ID 20251026_121920@128, all n<=2, l<=2 modes "by hand") and
@@ -73,7 +73,7 @@ def plot(data, args):
 
 
 def main(argv=None):
-    parser = _common.make_parser("fig08", __doc__.splitlines()[1])
+    parser = _common.make_parser("fig09", __doc__.splitlines()[1])
     parser.add_argument("--legacy-time-axis", type=_common.str2bool, default=True,
                         help="old-notebook axis k*T/(save_number+1) (published: true)")
     parser.add_argument("--quantity", choices=("r3d", "absz", "rxy"), default="r3d")

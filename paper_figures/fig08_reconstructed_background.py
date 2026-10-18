@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Fig. 7 (fig:8a,b,c,f): BH distance from the ULDM centre of mass in reconstructed-background runs (N=128).
+"""Fig. 8 (panels a-d, tex labels fig:8a,b,c,f): BH distance from the ULDM centre of mass in reconstructed-background runs (N=128).
 
 Panels (original notebook plot.ipynb, cell 5, MODE / COMPARE_N):
   compare_n0  (a): recon_nr3_nd0 (n_r=3, n_d=0, C0 solid) vs recon_nr0_nd0 (n_r=0, n_d=0, C1 dashed)
   compare_n1  (b): recon_nr3_nd1 vs recon_nr0_nd1
   compare_n2  (c): recon_nr3_nd2 vs recon_nr0_nd2
-  collection2 (f): recon_nr0_nd0..3 (n_r=0), tab10 colours by n_d, dashed, two-column legend
+  collection2 (d; tex subfloat label fig:8f): recon_nr0_nd0..3 (n_r=0), tab10 colours by n_d, dashed, two-column legend
 Observable: |x_BH - x_ULDCOM| in pc (plot.ipynb ``load_run``).  Reduced model: DF A=0.75, BH responds to the
 ULDM but does not source it.  Time axis: the published panels used k*3000/(500+1) Myr (last point at
 2994.01 Myr, verified from the PDF vector paths), so ``--legacy-time-axis`` defaults to true.
@@ -89,7 +89,7 @@ def plot(series, panel, args):
 
 
 def main(argv=None):
-    parser = _common.make_parser("fig07", __doc__.splitlines()[1])
+    parser = _common.make_parser("fig08", __doc__.splitlines()[1])
     parser.add_argument("--panels", nargs="+", default=PUBLISHED_PANELS, choices=sorted(PANELS))
     parser.add_argument("--legacy-time-axis", type=_common.str2bool, default=True,
                         help="old-notebook axis k*T/(save_number+1) (published: true)")

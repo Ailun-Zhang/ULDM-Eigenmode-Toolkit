@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fig. 4 (fig:3): orbital radius of the unseeded equal-mass binary (two 2 % BHs), fully coupled, N=256.
+"""Fig. 4 (tex label fig:3): orbital radius of the unseeded equal-mass binary (two 2 % BHs), fully coupled, N=256.
 
 Source run: binary256 (run ID 20251022_031402@256).
 Observable: |x_BH| from the simulation origin, pc (Test_PyUL_alan_Binary.ipynb cell 25

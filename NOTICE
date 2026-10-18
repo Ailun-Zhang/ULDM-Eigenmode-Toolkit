@@ -1,0 +1,46 @@
+ULDM Eigenmode Toolkit
+Copyright (c) 2025-2026 Alan Zhang
+
+This repository is distributed under the MIT License in the file LICENSE. This NOTICE records the origin of
+parts of the code and data and credits their authors; it does not change the licence of this repository.
+
+1. PyUltraLight unit system (PyUltraLight / PyUltraLight 2 / PyUL_SK)
+
+   Eig_ULDM_packages/units.py (convert, convert_back, convert_between with PyUL's unit strings, the physical
+   constants and the code-unit definitions) is adapted from the corresponding functions of PyUltraLight /
+   PyUltraLight 2 as found in PyUltraLight2/Current_SK.py of PyUL_SK, and Eig_ULDM_packages/pyul_run.py
+   copies the same constants and code-unit definitions verbatim, so that the toolkit reproduces PyUL's
+   units exactly. Eig_ULDM_packages/pyul_run.py also reads the run files
+   (config.uldm, reproducibility.uldm, Outputs/...) in the formats written by PyUltraLight 2 and PyUL_SK.
+
+   These conventions come from
+   - PyUltraLight: F. Edwards, E. Kendall, S. Hotchkiss and R. Easther, "PyUltraLight: A Pseudo-Spectral
+     Solver for Ultralight Dark Matter Dynamics", JCAP 10 (2018) 027, doi:10.1088/1475-7516/2018/10/027,
+     arXiv:1807.04037;
+   - PyUltraLight 2 / PyUL_NBody: Y. Wang and collaborators (Auckland Cosmology),
+     https://github.com/Sifyrena/PyUL_NBody, doi:10.5281/zenodo.6336160;
+   - PyUL_SK (the fork used for the simulations of the Stone Skipping paper): A. Zhang,
+     https://github.com/Ailun-Zhang/PyUL_SK.
+
+2. Soliton profile (Eig_ULDM_packages/soliton.h5)
+
+   The dataset /profile of soliton.h5 is identical, bit for bit, to PyUltraLight's standard soliton profile
+   "Soliton Profile Files/initial_f.npy" (900000 samples, dr = 1e-5), as distributed with PyUltraLight,
+   PyUltraLight 2 and PyUL_SK. The file stores it with the attributes dr, beta and mass0 (mass0 rounded to
+   3.883; see docs/conventions_and_errata.md, E3).
+
+3. Eigenmode method
+
+   The eigenfunction solver methodology and the reference soliton workflow were inspired by Mathematica code
+   provided by J. Luna Zagorac. No Mathematica code is distributed here. The theory of the eigenmode
+   decomposition is J. L. Zagorac, I. Sands, N. Padmanabhan and R. Easther, "Schroedinger-Poisson solitons:
+   perturbation theory", Phys. Rev. D 105, 103506 (2022), doi:10.1103/PhysRevD.105.103506.
+
+4. Dependencies
+
+   The toolkit uses, but does not include, NumPy, SciPy, Matplotlib, h5py, tqdm and pyshtools
+   (https://shtools.github.io/SHTOOLS/); each is distributed under its own licence.
+
+Please keep these credits when you redistribute or modify the code. When you use the toolkit for
+publications, cite the Stone Skipping paper (A. Zhang, Y. Wang, J. L. Zagorac and R. Easther,
+arXiv:2602.11512), this software release, and the works above; see the Citation section of README.md.

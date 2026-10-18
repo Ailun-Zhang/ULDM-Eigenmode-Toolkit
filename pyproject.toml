@@ -9,7 +9,7 @@ version = "0.3.0"
 description = "ULDM eigenmode analysis toolkit: compute eigenfunctions f_nl(r) and spectral coefficients c_nlm(t) for ultralight dark matter simulations."
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
 authors = [
     {name = "Alan Zhang", email = "Alan.Zhang1@anu.edu.au"}
@@ -59,6 +59,8 @@ uldm-cnlm = "Eig_ULDM_packages.pipeline:main"
 Homepage = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit"
 Repository = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit"
 Documentation = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit#readme"
+Changelog = "https://github.com/Ailun-Zhang/ULDM-Eigenmode-Toolkit/blob/main/CHANGELOG.md"
+Paper = "https://arxiv.org/abs/2602.11512"
 
 [tool.setuptools]
 include-package-data = true

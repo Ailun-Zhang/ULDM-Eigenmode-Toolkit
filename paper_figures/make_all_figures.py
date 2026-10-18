@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate every printed figure of the paper (Figs. 1-12) with default (= published) options.
+"""Regenerate every printed figure of the paper (Figs. 1-13) with default (= published) options.
 
 Each figure runs in its own Python process so that the matplotlib rcParams of one script cannot leak into
 another.  A figure that fails (e.g. missing data) is reported and the others still run; the exit status is
@@ -27,7 +27,7 @@ def main(argv=None):
     parser.add_argument("--out-dir", default="paper_figures_output")
     parser.add_argument("--formats", default=None)
     parser.add_argument("--prefer", choices=("raw", "bundle"), default="raw")
-    parser.add_argument("--only", nargs="+", default=None, help="figure keys, e.g. fig01 fig07")
+    parser.add_argument("--only", nargs="+", default=None, help="figure keys, e.g. fig01 fig06_fig07 fig08")
     parser.add_argument("--extra", nargs=argparse.REMAINDER, default=[],
                         help="extra arguments passed to every script (put last)")
     args = parser.parse_args(argv)
