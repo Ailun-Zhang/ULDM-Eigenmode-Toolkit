@@ -49,7 +49,7 @@ python paper_figures/fig04_equal_mass_binary.py --data-root /path/to/StoneSkippi
 ```
 
 `/path/to/StoneSkipping_PRD_data_v1` is the unpacked data deposit *Data for "Stone Skipping Black Holes in
-Ultralight Dark Matter Solitons"* (Zenodo, version 1), which also contains a copy of these scripts.
+Ultralight Dark Matter Solitons"* (Zenodo, version 1, [doi:10.5281/zenodo.23454343](https://doi.org/10.5281/zenodo.23454343)), which also contains a copy of these scripts.
 
 Every script accepts these options:
 

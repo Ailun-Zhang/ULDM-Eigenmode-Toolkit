@@ -478,7 +478,7 @@ python paper_figures/make_all_figures.py --data-root path/to/StoneSkipping_PRD_d
 Relative `--data-root`, `--out-dir` and `--config` paths are relative to the current working directory.
 
 The data deposit *Data for "Stone Skipping Black Holes in Ultralight Dark Matter Solitons"* (version 1,
-Zenodo, CC BY 4.0) holds the trajectory bundles, c_nlm and eigenbasis files and the provenance tables of the
+Zenodo, [doi:10.5281/zenodo.23454343](https://doi.org/10.5281/zenodo.23454343), CC BY 4.0) holds the trajectory bundles, c_nlm and eigenbasis files and the provenance tables of the
 runs, plus a copy of `paper_figures/`; its README starts with a step-by-step guide to reproduce the figures
 and the simulations in your own environment. The 3-D wavefunction outputs are not deposited; they are
 available from the corresponding author on reasonable request.
