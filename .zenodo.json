@@ -1,0 +1,50 @@
+{
+  "title": "ULDM Eigenmode Toolkit",
+  "upload_type": "software",
+  "version": "0.3.0",
+  "description": "<p>Python library for computing the eigenfunctions f_nl(r) of a soliton potential and the spectral coefficients c_nlm(t) of ultralight dark matter (ULDM) wavefunctions from PyUL_SK simulations: eigen solver, one-pass a_lm kernel on radial shells, c_nlm integration (resumable pipeline and inline recording during a PyUL run), PyUL run and trajectory loaders, time/frequency analysis, and scripts that regenerate every figure of the paper <em>Stone Skipping Black Holes in Ultralight Dark Matter Solitons</em> (paper_figures/).</p>",
+  "creators": [
+    {
+      "name": "Zhang, Alan",
+      "affiliation": "TODO: affiliation",
+      "orcid": "TODO: ORCID (or delete this key)"
+    }
+  ],
+  "keywords": [
+    "ULDM",
+    "ultralight dark matter",
+    "dark matter",
+    "solitons",
+    "eigenmode",
+    "spherical harmonics",
+    "Schroedinger-Poisson",
+    "PyUL"
+  ],
+  "license": "MIT",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/Ailun-Zhang/PyUL_SK",
+      "relation": "references",
+      "resource_type": "software",
+      "scheme": "url"
+    },
+    {
+      "identifier": "TODO: DOI of the Physical Review D article (Stone Skipping Black Holes in Ultralight Dark Matter Solitons)",
+      "relation": "isSupplementTo",
+      "resource_type": "publication-article",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "TODO: Zenodo DOI of the data deposit StoneSkipping_PRD_data_v1",
+      "relation": "isSupplementedBy",
+      "resource_type": "dataset",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.1103/PhysRevD.105.103506",
+      "relation": "references",
+      "resource_type": "publication-article",
+      "scheme": "doi"
+    }
+  ]
+}
